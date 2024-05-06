@@ -46,10 +46,12 @@ def make_dataset_ots(root):
 
 def make_dataset_ohaze(root: str, mode: str):
     print('Loading %s data from %s' % (mode, root))
+    print("mode:", mode)
     img_list = []
     for img_name in os.listdir(os.path.join(root, mode, 'hazy')):
         gt_name = img_name.replace('hazy', 'GT')
-        # print("must exist: ", os.path.join(root, mode, 'gt', gt_name))
+        if mode == "val":
+            print("must exist: ", os.path.join(root, mode, 'gt', gt_name))
         assert os.path.exists(os.path.join(root, mode, 'gt', gt_name))
         img_list.append([os.path.join(root, mode, 'hazy', img_name),
                          os.path.join(root, mode, 'gt', gt_name)])

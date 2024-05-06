@@ -32,7 +32,7 @@ def parse_args():
 
     return args
 
-
+# 配置信息
 cfgs = {
     'use_physical': True,
     'iter_num': 20000,
@@ -169,8 +169,12 @@ def validate(net, curr_iter, optimizer):
                 r = dehaze[i].cpu().numpy().transpose([1, 2, 0])  # data range [0, 1]
                 g = gt[i].cpu().numpy().transpose([1, 2, 0])
                 psnr = peak_signal_noise_ratio(g, r)
-                ssim = structural_similarity(g, r, data_range=1, multichannel=True,
-                                             gaussian_weights=True, sigma=1.5, use_sample_covariance=False)
+                # ssim = structural_similarity(g, r, data_range=1, multichannel=True,
+                #                              gaussian_weights=True, sigma=1.5, use_sample_covariance=False)
+                # newlyadded
+                ssim = structural_similarity(g, r, win_size=3, data_range=1, multichannel=True,
+                              gaussian_weights=True, sigma=1.5, use_sample_covariance=False)
+                
                 psnr_record.update(psnr)
                 ssim_record.update(ssim)
 
@@ -189,13 +193,14 @@ def validate(net, curr_iter, optimizer):
 
 if __name__ == '__main__':
     args = parse_args()
-
-    os.environ['CUDA_VISIBLE_DEVICES'] = args.gpus
+    print("args parsed.......")
+    # os.environ['CUDA_VISIBLE_DEVICES'] = args.gpus
     cudnn.benchmark = True
+    print("gpus = ", args.gpus)
     torch.cuda.set_device(int(args.gpus))
-
+    
     print('O-HAZE_ROOT:', OHAZE_ROOT)
-    train_dataset = OHazeDataset(OHAZE_ROOT, '# O-HAZY NTIRE 2018')
+    train_dataset = OHazeDataset(OHAZE_ROOT, 'train_crop_512') # 这里设置为OHAZE数据集的路径，要使用512*512的裁剪(preprocess_ohaze_data.py)
     train_loader = DataLoader(train_dataset, batch_size=cfgs['train_batch_size'], num_workers=1,
                               shuffle=True, drop_last=True)
 

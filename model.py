@@ -944,7 +944,7 @@ class DM2FNet_woPhy(Base_OHAZE):
 
         assert arch in ['resnet50', 'resnet101',
                         'resnet152', 'resnext50_32x4d', 'resnext101_32x8d']
-        backbone = models.__dict__[arch](pretrained=True)
+        backbone = models.__dict__[arch](pretrained=False)
         del backbone.fc
         self.backbone = backbone
 

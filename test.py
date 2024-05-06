@@ -6,14 +6,16 @@ import torch
 from torch import nn
 from torchvision import transforms
 
-from tools.config import TEST_SOTS_ROOT, OHAZE_ROOT
+# defined
+# from tools.config import TEST_SOTS_ROOT, OHAZE_ROOT
+from tools.config import OHAZE_ROOT
 from tools.utils import AvgMeter, check_mkdir, sliding_forward
 from model import DM2FNet, DM2FNet_woPhy
 from datasets import SotsDataset, OHazeDataset
 from torch.utils.data import DataLoader
 from skimage.metrics import peak_signal_noise_ratio, structural_similarity
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+# os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 torch.manual_seed(2018)
 torch.cuda.set_device(0)
@@ -24,7 +26,7 @@ exp_name = 'O-Haze'
 
 args = {
     # 'snapshot': 'iter_40000_loss_0.01230_lr_0.000000',
-    'snapshot': 'iter_19000_loss_0.04261_lr_0.000014',
+    'snapshot': 'iter_20000_loss_0.05956_lr_0.000000',
 }
 
 to_test = {
@@ -41,9 +43,11 @@ def main():
 
         for name, root in to_test.items():
             if 'SOTS' in name:
+                print("dm2fnet")
                 net = DM2FNet().cuda()
                 dataset = SotsDataset(root)
             elif 'O-Haze' in name:
+                print("dm2fnet_wophy")
                 net = DM2FNet_woPhy().cuda()
                 dataset = OHazeDataset(root, 'test')
             else:
@@ -84,8 +88,12 @@ def main():
                     gt = gts[i].cpu().numpy().transpose([1, 2, 0])
                     psnr = peak_signal_noise_ratio(gt, r)
                     psnrs.append(psnr)
-                    ssim = structural_similarity(gt, r, data_range=1, multichannel=True,
-                                                 gaussian_weights=True, sigma=1.5, use_sample_covariance=False)
+                    # ssim = structural_similarity(gt, r, data_range=1, multichannel=True,
+                    #                              gaussian_weights=True, sigma=1.5, use_sample_covariance=False)
+                    # newlyadded
+                    ssim = structural_similarity(gt, r, win_size=3, data_range=1, multichannel=True,
+                                gaussian_weights=True, sigma=1.5, use_sample_covariance=False)                    
+
                     ssims.append(ssim)
                     print('predicting for {} ({}/{}) [{}]: PSNR {:.4f}, SSIM {:.4f}'
                           .format(name, idx + 1, len(dataloader), fs[i], psnr, ssim))
