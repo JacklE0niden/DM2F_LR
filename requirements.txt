@@ -5,3 +5,4 @@ Pillow>=8.2.0
 scipy>=1.7.1
 scikit-image>=0.18.3
 tqdm>=4.62.2
+pyrtools>=1.0.4

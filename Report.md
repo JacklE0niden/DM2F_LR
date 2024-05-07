@@ -26,19 +26,38 @@ $$
 
 SSIM 越接近 1，表示两幅图像越相似；越接近 0，表示两幅图像越不相似。
 
+# 峰值信噪比（PSNR）
+
+PSNR（Peak Signal-to-Noise Ratio，峰值信噪比）是一种用于度量图像质量的指标。它通过比较图像的原始版本和经过压缩或其他处理后的版本之间的差异来评估图像的失真程度。PSNR的计算基于图像的峰值信号和均方误差之比，通常用来衡量压缩算法的性能，以及在图像处理中的信号失真程度。
+
+PSNR的计算公式为：
+
+$$
+\text{PSNR} = 10 \cdot \log_{10} \left( \frac{{\text{MAX}^2}}{{\text{MSE}}} \right)
+$$
+
+其中：
+- $\text{MAX}$ 是图像中像素值的最大可能值（通常为255，对于8位图像）。
+- $\text{MSE}$ 是图像的均方误差（Mean Squared Error），即原始图像与处理后图像之间的差异的平方和的均值。
+
+PSNR的值越高，表示图像的质量损失越小，失真程度越低。
+
+
+
 # 实验结果
 
 ## 测试1：20000 epoch train_ohaze
 
-| Image (Outdoor) | PSNR   | SSIM   |
-|-----------------|--------|--------|
-| 40_outdoor_hazy | 22.5417| 0.7586 |
-| 39_outdoor_hazy | 20.1145| 0.7143 |
-| 38_outdoor_hazy | 23.5476| 0.7781 |
-| 37_outdoor_hazy | 22.3280| 0.6981 |
-| 36_outdoor_hazy | 22.6957| 0.7549 |
+| Image (Outdoor) | PSNR    | SSIM    | VIF     |
+|-----------------|---------|---------|---------|
+| 40_outdoor_hazy | 22.5417 | 0.7586  | 0.7643  |
+| 39_outdoor_hazy | 20.1138 | 0.7143  | 0.7728  |
+| 38_outdoor_hazy | 23.5483 | 0.7781  | 1.0254  |
+| 37_outdoor_hazy | 22.3273 | 0.6981  | 0.7238  |
+| 36_outdoor_hazy | 22.6959 | 0.7549  | 0.7318  |
 
 **Average:**
 - L1 Loss: 0.059562
-- Average PSNR: 22.245492
-- Average SSIM: 0.740813
+- Average PSNR: 22.245414
+- Average SSIM: 0.740818
+- Average VIF: 0.803647

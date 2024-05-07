@@ -14,7 +14,8 @@ from model import DM2FNet, DM2FNet_woPhy
 from datasets import SotsDataset, OHazeDataset
 from torch.utils.data import DataLoader
 from skimage.metrics import peak_signal_noise_ratio, structural_similarity
-
+from skimage import color
+from tools.vif_utils import vif
 # os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 torch.manual_seed(2018)
@@ -62,7 +63,7 @@ def main():
             net.eval()
             dataloader = DataLoader(dataset, batch_size=1)
 
-            psnrs, ssims = [], []
+            psnrs, ssims, vifs, niqe = [], [], [], []
             loss_record = AvgMeter()
 
             for idx, data in enumerate(dataloader):
@@ -86,6 +87,8 @@ def main():
                 for i in range(len(fs)):
                     r = res[i].cpu().numpy().transpose([1, 2, 0])
                     gt = gts[i].cpu().numpy().transpose([1, 2, 0])
+
+
                     psnr = peak_signal_noise_ratio(gt, r)
                     psnrs.append(psnr)
                     # ssim = structural_similarity(gt, r, data_range=1, multichannel=True,
@@ -95,15 +98,23 @@ def main():
                                 gaussian_weights=True, sigma=1.5, use_sample_covariance=False)                    
 
                     ssims.append(ssim)
-                    print('predicting for {} ({}/{}) [{}]: PSNR {:.4f}, SSIM {:.4f}'
-                          .format(name, idx + 1, len(dataloader), fs[i], psnr, ssim))
+
+                    gt_gray = color.rgb2gray(gt)
+                    r_gray = color.rgb2gray(r)
+                    
+                    # Calculate VIF
+                    vif_score = vif(gt_gray, r_gray)
+                    vifs.append(vif_score)
+                    
+                    print('predicting for {} ({}/{}) [{}]: PSNR {:.4f}, SSIM {:.4f}, VIF {:.4f}'
+                          .format(name, idx + 1, len(dataloader), fs[i], psnr, ssim, vif_score))
 
                 for r, f in zip(res.cpu(), fs):
                     to_pil(r).save(
                         os.path.join(ckpt_path, exp_name,
                                      '(%s) %s_%s' % (exp_name, name, args['snapshot']), '%s.png' % f))
 
-            print(f"[{name}] L1: {loss_record.avg:.6f}, PSNR: {np.mean(psnrs):.6f}, SSIM: {np.mean(ssims):.6f}")
+            print(f"[{name}] L1: {loss_record.avg:.6f}, PSNR: {np.mean(psnrs):.6f}, SSIM: {np.mean(ssims):.6f}, VIF: {np.mean(vifs):.6f}")
 
 
 if __name__ == '__main__':
