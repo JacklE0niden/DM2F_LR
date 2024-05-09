@@ -844,6 +844,8 @@ class DM2FNet(Base):
         down2 = self.down2(layer2)
         down3 = self.down3(layer3)
         down4 = self.down4(layer4)
+        # 得到不同层级的特征表示（MLF）
+
 
         down2 = F.upsample(down2, size=down1.size()[2:], mode='bilinear')
         down3 = F.upsample(down3, size=down1.size()[2:], mode='bilinear')
@@ -858,6 +860,7 @@ class DM2FNet(Base):
         f_phy = down1 * attention_phy[:, 0, :, :, :] + down2 * attention_phy[:, 1, :, :, :] + \
                 down3 * attention_phy[:, 2, :, :, :] + down4 * attention_phy[:, 3, :, :, :]
         f_phy = self.refine(f_phy) + f_phy
+        # 这个特征是用来预测t的
 
         attention1 = self.attention1(concat)
         attention1 = F.softmax(attention1.view(n, 4, c, h, w), 1)
@@ -882,6 +885,8 @@ class DM2FNet(Base):
         f4 = down1 * attention4[:, 0, :, :, :] + down2 * attention4[:, 1, :, :, :] + \
              down3 * attention4[:, 2, :, :, :] + down4 * attention4[:, 3, :, :, :]
         f4 = self.refine(f4) + f4
+        # 4个不同的AFIM
+
 
         if x0_hd is not None:
             x0 = x0_hd
@@ -895,7 +900,7 @@ class DM2FNet(Base):
         t = F.upsample(self.t(f_phy), size=x0.size()[2:], mode='bilinear')
         x_phy = ((x0 - a * (1 - t)) / t.clamp(min=1e-8)).clamp(min=0., max=1.)
 
-        # J2 = I * exp(R2)
+        # J1 = I * R1
         r1 = F.upsample(self.j1(f1), size=x0.size()[2:], mode='bilinear')
         x_j1 = torch.exp(log_x0 + r1).clamp(min=0., max=1.)
 
@@ -903,7 +908,7 @@ class DM2FNet(Base):
         r2 = F.upsample(self.j2(f2), size=x0.size()[2:], mode='bilinear')
         x_j2 = ((x + r2) * self.std + self.mean).clamp(min=0., max=1.)
 
-        #
+        # J3 = I * exp(R3)
         r3 = F.upsample(self.j3(f3), size=x0.size()[2:], mode='bilinear')
         x_j3 = torch.exp(-torch.exp(log_log_x0_inverse + r3)).clamp(min=0., max=1.)
 

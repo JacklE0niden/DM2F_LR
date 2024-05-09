@@ -48,16 +48,17 @@ PSNR的值越高，表示图像的质量损失越小，失真程度越低。
 
 ## 测试1：20000 epoch train_ohaze
 
-| Image (Outdoor) | PSNR    | SSIM    | VIF     |
-|-----------------|---------|---------|---------|
-| 40_outdoor_hazy | 22.5417 | 0.7586  | 0.7643  |
-| 39_outdoor_hazy | 20.1138 | 0.7143  | 0.7728  |
-| 38_outdoor_hazy | 23.5483 | 0.7781  | 1.0254  |
-| 37_outdoor_hazy | 22.3273 | 0.6981  | 0.7238  |
-| 36_outdoor_hazy | 22.6959 | 0.7549  | 0.7318  |
+| Image (Outdoor) | PSNR    | SSIM    | VIF     | MSE     |
+|-----------------|---------|---------|---------|---------|
+| 40_outdoor_hazy | 22.5420 | 0.7586  | 0.7643  | 0.0056  |
+| 39_outdoor_hazy | 20.1145 | 0.7143  | 0.7728  | 0.0097  |
+| 38_outdoor_hazy | 23.5469 | 0.7781  | 1.0254  | 0.0044  |
+| 37_outdoor_hazy | 22.3279 | 0.6981  | 0.7238  | 0.0059  |
+| 36_outdoor_hazy | 22.6933 | 0.7549  | 0.7318  | 0.0054  |
 
 **Average:**
-- L1 Loss: 0.059562
-- Average PSNR: 22.245414
-- Average SSIM: 0.740818
-- Average VIF: 0.803647
+- L1 Loss: 0.059564
+- Average PSNR: 22.244909
+- Average SSIM: 0.740812
+- Average VIF: 0.803607
+- Average MSE: 0.006191
