@@ -947,7 +947,8 @@ class DM2FNet_woPhy(Base_OHAZE):
         backbone = models.__dict__[arch](pretrained=False)
         del backbone.fc
         self.backbone = backbone
-
+        # print("backbone", self.backbone)
+        # backbone ResNet
         self.down0 = nn.Sequential(
             nn.Conv2d(64, num_features, kernel_size=1), nn.SELU(),
             nn.Conv2d(num_features, num_features, kernel_size=3, padding=1), nn.SELU(),
@@ -1050,7 +1051,9 @@ class DM2FNet_woPhy(Base_OHAZE):
 
     def forward(self, x0):
         x = (x0 - self.mean_in) / self.std_in
+        # 对模糊图像进行标准化处理，x就表示I
 
+        # resnet backbone
         backbone = self.backbone
 
         layer0 = backbone.conv1(x)
@@ -1062,12 +1065,13 @@ class DM2FNet_woPhy(Base_OHAZE):
         layer2 = backbone.layer2(layer1)
         layer3 = backbone.layer3(layer2)
         layer4 = backbone.layer4(layer3)
-
+        
         down0 = self.down0(layer0)
         down1 = self.down1(layer1)
         down2 = self.down2(layer2)
         down3 = self.down3(layer3)
         down4 = self.down4(layer4)
+        # 得到不同层级的特征表示（MLF）
 
         down4 = F.upsample(down4, size=down3.size()[2:], mode='bilinear')
         fuse3_attention = self.fuse3_attention(torch.cat((down4, down3), 1))
@@ -1084,24 +1088,29 @@ class DM2FNet_woPhy(Base_OHAZE):
         f = F.upsample(f, size=down0.size()[2:], mode='bilinear')
         fuse0_attention = self.fuse0_attention(torch.cat((f, down0), 1))
         f = f + self.fuse0(torch.cat((f, fuse0_attention * down0), 1))
+        # 计算出四个AFIM之后的结果
 
         log_x0 = torch.log(x0.clamp(min=1e-8))
-        log_log_x0_inverse = torch.log(torch.log(1 / x0.clamp(min=1e-8, max=(1 - 1e-8))))
+        log_log_x0_inverse = torch.log(torch.log(1 / x0.clamp(min=1e-8, max=(1 - 1e-8))))# 对输入的模糊图像 x0 进行了双重截断操作
 
         x_p0 = torch.exp(log_x0 + F.upsample(self.p0(f), size=x0.size()[2:], mode='bilinear')).clamp(min=0, max=1)
+        # 上采样到与输入图像相同的大小。计算模糊图像的无雾背景细节层。
 
         x_p1 = ((x + F.upsample(self.p1(f), size=x0.size()[2:], mode='bilinear')) * self.std_out + self.mean_out)\
             .clamp(min=0., max=1.)
+        # 用来计算模糊图像的辐射层。
 
         log_x_p2_0 = torch.log(
             ((x + F.upsample(self.p2_0(f), size=x0.size()[2:], mode='bilinear')) * self.std_out + self.mean_out)
                 .clamp(min=1e-8))
         x_p2 = torch.exp(log_x_p2_0 + F.upsample(self.p2_1(f), size=x0.size()[2:], mode='bilinear'))\
             .clamp(min=0., max=1.)
+        # 计算模糊图像的透射层
 
         log_x_p3_0 = torch.exp(log_log_x0_inverse + F.upsample(self.p3_0(f), size=x0.size()[2:], mode='bilinear'))
         x_p3 = torch.exp(-log_x_p3_0 + F.upsample(self.p3_1(f), size=x0.size()[2:], mode='bilinear')).clamp(min=0,
                                                                                                             max=1)
+        # 计算模糊图像的雾层
 
         attention_fusion = F.upsample(self.attentional_fusion(f), size=x0.size()[2:], mode='bilinear')
         x_fusion = torch.cat((torch.sum(F.softmax(attention_fusion[:, : 4, :, :], 1) * torch.stack(

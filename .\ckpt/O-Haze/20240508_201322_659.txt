@@ -1,0 +1,2 @@
+{'use_physical': True, 'iter_num': 20000, 'train_batch_size': 16, 'last_iter': 0, 'lr': 0.0002, 'lr_decay': 0.9, 'weight_decay': 2e-05, 'momentum': 0.9, 'snapshot': '', 'val_freq': 2000, 'crop_size': 512}
+
