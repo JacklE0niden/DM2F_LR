@@ -182,8 +182,11 @@ def validate(net, curr_iter, optimizer):
 
 if __name__ == '__main__':
     args = parse_args()
-
-    os.environ['CUDA_VISIBLE_DEVICES'] = args.gpus
+    print("args parsed.......")
+    # os.environ['CUDA_VISIBLE_DEVICES'] = args.gpus
+    cudnn.benchmark = True
+    print("gpus = ", args.gpus)
+    
     cudnn.benchmark = True
     torch.cuda.set_device(int(args.gpus))
 
