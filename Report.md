@@ -62,3 +62,15 @@ PSNR的值越高，表示图像的质量损失越小，失真程度越低。
 - Average SSIM: 0.740812
 - Average VIF: 0.803607
 - Average MSE: 0.006191
+
+
+## 测试2：40000 epoch train
+
+### 在RESIDE数据测试集中测试
+
+**Average**
+- L1 Loss: 0.012660 
+- Average PSNR: 34.958425
+- Average SSIM: 0.974524
+- Average VIF: 1.006431
+- Average MSE: 0.000359

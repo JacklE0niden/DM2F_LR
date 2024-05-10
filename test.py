@@ -8,8 +8,8 @@ from torchvision import transforms
 from torch.backends import cudnn
 
 # defined
-# from tools.config import TEST_SOTS_ROOT, OHAZE_ROOT
-from tools.config import OHAZE_ROOT
+from tools.config import TEST_SOTS_ROOT, OHAZE_ROOT
+# from tools.config import OHAZE_ROOT
 from tools.utils import AvgMeter, check_mkdir, sliding_forward
 from model import DM2FNet, DM2FNet_woPhy
 from datasets import SotsDataset, OHazeDataset
@@ -25,15 +25,15 @@ torch.manual_seed(2018)
 torch.cuda.set_device(0)
 
 ckpt_path = './ckpt'
-# exp_name = 'RESIDE_ITS'
-exp_name = 'O-Haze'
+exp_name = 'RESIDE_ITS'
+# exp_name = 'O-Haze'
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a DM2FNet')
     parser.add_argument(
         '--gpus', type=str, default='0', help='gpus to use ')
     parser.add_argument(
-        '--snapshot', type=str, default='iter_20000_loss_0.05956_lr_0.000000', help='snapshot to load for testing')
+        '--snapshot', type=str, default='iter_40000_loss_0.01267_lr_0.000000', help='snapshot to load for testing')
     return parser.parse_args()
 
 to_test = {
@@ -41,8 +41,8 @@ to_test = {
     'O-Haze': OHAZE_ROOT,
 }
 args = {
-    # 'snapshot': 'iter_40000_loss_0.01230_lr_0.000000',
-    'snapshot': 'iter_20000_loss_0.05956_lr_0.000000',
+    'snapshot': 'iter_40000_loss_0.01267_lr_0.000000',
+    # 'snapshot': 'iter_20000_loss_0.05956_lr_0.000000',
 }  
 to_pil = transforms.ToPILImage()
 
