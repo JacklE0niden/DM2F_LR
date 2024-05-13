@@ -10,7 +10,7 @@ from torch import optim
 from torch.backends import cudnn
 from torch.utils.data import DataLoader
 
-from model import DM2FNet
+from model import DM2FNet, NewDehazeModel
 from tools.config import TRAIN_ITS_ROOT, TEST_SOTS_ROOT
 from datasets import ItsDataset, SotsDataset
 from tools.utils import AvgMeter, check_mkdir
@@ -49,6 +49,8 @@ cfgs = {
 
 def main():
     net = DM2FNet().cuda().train()
+    # net = MyModel().cuda().train()
+    
     # net = nn.DataParallel(net)
 
     optimizer = optim.Adam([
