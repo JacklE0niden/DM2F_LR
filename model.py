@@ -5,6 +5,30 @@ from torch import nn
 import torchvision.models as models
 from resnext import ResNeXt101
 
+class HorizontalPoolingPyramid(): # 水平金字塔池化方法
+    """
+        Horizontal Pyramid Matching for Person Re-identification
+        Arxiv: https://arxiv.org/abs/1804.05275
+        Github: https://github.com/SHI-Labs/Horizontal-Pyramid-Matching
+    """
+
+    def __init__(self, bin_num=None):
+        if bin_num is None:
+            # bin_num = [16, 8, 4, 2, 1]
+            bin_num = [8, 4, 2, 1]
+        self.bin_num = bin_num
+    def __call__(self, x):
+        """
+            x  : [n, c, h, w]
+            ret: [n, c, p] 
+        """
+        n, c = x.size()[:2]
+        features = []
+        for b in self.bin_num:
+            z = x.view(n, c, b, -1) 
+            z = z.mean(-1) + z.max(-1)[0]
+            features.append(z)
+        return torch.cat(features, -1)
 
 class Base(nn.Module):
     def __init__(self):
@@ -821,6 +845,7 @@ class DM2FNet(Base):
 
     def forward(self, x0, x0_hd=None):
         x = (x0 - self.mean) / self.std
+        print("x.shape", x.shape)
 
         backbone = self.backbone
 
@@ -835,10 +860,12 @@ class DM2FNet(Base):
         layer4 = backbone.layer4(layer3)
 
         # layer0 = self.layer0(x)
-        # layer1 = self.layer1(layer0)
-        # layer2 = self.layer2(layer1)
-        # layer3 = self.layer3(layer2)
-        # layer4 = self.layer4(layer3)
+        # layer0.shape: torch.Size([16, 64, 64, 64])
+        # layer1.shape: torch.Size([16, 256, 64, 64])
+        # layer2.shape: torch.Size([16, 512, 32, 32])
+        # layer3.shape: torch.Size([16, 1024, 16, 16])
+        # layer4.shape: torch.Size([16, 2048, 8, 8])
+
 
         down1 = self.down1(layer1)
         down2 = self.down2(layer2)
@@ -846,12 +873,18 @@ class DM2FNet(Base):
         down4 = self.down4(layer4)
         # 得到不同层级的特征表示（MLF）
 
-
         down2 = F.upsample(down2, size=down1.size()[2:], mode='bilinear')
         down3 = F.upsample(down3, size=down1.size()[2:], mode='bilinear')
         down4 = F.upsample(down4, size=down1.size()[2:], mode='bilinear')
 
         concat = torch.cat((down1, down2, down3, down4), 1)
+        # 绿色的那一大坨（MLF）的结果
+
+        # down1.shape: torch.Size([16, 128, 64, 64])
+        # down2.shape: torch.Size([16, 128, 64, 64])
+        # down3.shape: torch.Size([16, 128, 64, 64])
+        # down4.shape: torch.Size([16, 128, 64, 64])
+        # concat.shape: torch.Size([16, 512, 64, 64])
 
         n, c, h, w = down1.size()
 
@@ -859,32 +892,33 @@ class DM2FNet(Base):
         attention_phy = F.softmax(attention_phy.view(n, 4, c, h, w), 1)
         f_phy = down1 * attention_phy[:, 0, :, :, :] + down2 * attention_phy[:, 1, :, :, :] + \
                 down3 * attention_phy[:, 2, :, :, :] + down4 * attention_phy[:, 3, :, :, :]
-        f_phy = self.refine(f_phy) + f_phy
+        f_phy = self.refine(f_phy) + f_phy # [16,128,64,64]
         # 这个特征是用来预测t的
 
         attention1 = self.attention1(concat)
         attention1 = F.softmax(attention1.view(n, 4, c, h, w), 1)
         f1 = down1 * attention1[:, 0, :, :, :] + down2 * attention1[:, 1, :, :, :] + \
              down3 * attention1[:, 2, :, :, :] + down4 * attention1[:, 3, :, :, :]
-        f1 = self.refine(f1) + f1
+        f1 = self.refine(f1) + f1 # [16,128,64,64]
 
         attention2 = self.attention2(concat)
         attention2 = F.softmax(attention2.view(n, 4, c, h, w), 1)
         f2 = down1 * attention2[:, 0, :, :, :] + down2 * attention2[:, 1, :, :, :] + \
              down3 * attention2[:, 2, :, :, :] + down4 * attention2[:, 3, :, :, :]
-        f2 = self.refine(f2) + f2
+        f2 = self.refine(f2) + f2 # [16,128,64,64]
 
         attention3 = self.attention3(concat)
         attention3 = F.softmax(attention3.view(n, 4, c, h, w), 1)
         f3 = down1 * attention3[:, 0, :, :, :] + down2 * attention3[:, 1, :, :, :] + \
              down3 * attention3[:, 2, :, :, :] + down4 * attention3[:, 3, :, :, :]
-        f3 = self.refine(f3) + f3
+        f3 = self.refine(f3) + f3 # [16,128,64,64]
 
         attention4 = self.attention4(concat)
         attention4 = F.softmax(attention4.view(n, 4, c, h, w), 1)
         f4 = down1 * attention4[:, 0, :, :, :] + down2 * attention4[:, 1, :, :, :] + \
              down3 * attention4[:, 2, :, :, :] + down4 * attention4[:, 3, :, :, :]
-        f4 = self.refine(f4) + f4
+        f4 = self.refine(f4) + f4 # [16,128,64,64]
+
         # 4个不同的AFIM
 
 
@@ -899,35 +933,50 @@ class DM2FNet(Base):
         a = self.a(f_phy)
         t = F.upsample(self.t(f_phy), size=x0.size()[2:], mode='bilinear')
         x_phy = ((x0 - a * (1 - t)) / t.clamp(min=1e-8)).clamp(min=0., max=1.)
+        print("x_phy.shape:",x_phy.shape) # [16, 3, 256, 256]
 
         # J1 = I * R1
         r1 = F.upsample(self.j1(f1), size=x0.size()[2:], mode='bilinear')
         x_j1 = torch.exp(log_x0 + r1).clamp(min=0., max=1.)
+        print("x_j1.shape:",x_j1.shape) # [16, 3, 256, 256]
 
         # J2 = I + R2
         r2 = F.upsample(self.j2(f2), size=x0.size()[2:], mode='bilinear')
         x_j2 = ((x + r2) * self.std + self.mean).clamp(min=0., max=1.)
+        print("x_j2.shape:",x_j2.shape) # [16, 3, 256, 256]
 
         # J3 = I * exp(R3)
         r3 = F.upsample(self.j3(f3), size=x0.size()[2:], mode='bilinear')
         x_j3 = torch.exp(-torch.exp(log_log_x0_inverse + r3)).clamp(min=0., max=1.)
+        print("x_j3.shape:",x_j3.shape) # [16, 3, 256, 256]
 
         # J4 = log(1 + I * R4)
         r4 = F.upsample(self.j4(f4), size=x0.size()[2:], mode='bilinear')
         # x_j4 = (torch.log(1 + r4 * x0)).clamp(min=0, max=1)
         x_j4 = (torch.log(1 + torch.exp(log_x0 + r4))).clamp(min=0., max=1.)
+        print("x_j4.shape:",x_j4.shape) # [16, 3, 256, 256]
 
         attention_fusion = F.upsample(self.attention_fusion(concat), size=x0.size()[2:], mode='bilinear')
+        # 那一大坨W0~W4
+        print("attention_fusion.shape:",attention_fusion.shape) # [16, 15, 256, 256]
         x_f0 = torch.sum(F.softmax(attention_fusion[:, :5, :, :], 1) *
                          torch.stack((x_phy[:, 0, :, :], x_j1[:, 0, :, :], x_j2[:, 0, :, :],
                                       x_j3[:, 0, :, :], x_j4[:, 0, :, :]), 1), 1, True)
+        print("x_f0.shape:",x_f0.shape) # [16, 1, 256, 256]
+
         x_f1 = torch.sum(F.softmax(attention_fusion[:, 5: 10, :, :], 1) *
                          torch.stack((x_phy[:, 1, :, :], x_j1[:, 1, :, :], x_j2[:, 1, :, :],
                                       x_j3[:, 1, :, :], x_j4[:, 1, :, :]), 1), 1, True)
+        
+        print("x_f1.shape:",x_f1.shape)
+
         x_f2 = torch.sum(F.softmax(attention_fusion[:, 10:, :, :], 1) *
                          torch.stack((x_phy[:, 2, :, :], x_j1[:, 2, :, :], x_j2[:, 2, :, :],
                                       x_j3[:, 2, :, :], x_j4[:, 2, :, :]), 1), 1, True)
+        print("x_f2.shape:",x_f2.shape)
+
         x_fusion = torch.cat((x_f0, x_f1, x_f2), 1).clamp(min=0., max=1.)
+        print("x_fusion.shape:",x_fusion.shape) # [16, 3, 256, 256]
 
         if self.training:
             return x_fusion, x_phy, x_j1, x_j2, x_j3, x_j4, t, a.view(x.size(0), -1)
@@ -1138,8 +1187,7 @@ class DM2FNet_woPhy(Base_OHAZE):
             return x_fusion
 
 
-
-class MyModel(nn.Module):
+class MyModel(Base):
     def __init__(self, num_features=128, arch='resnext101_32x8d'):
         super(MyModel, self).__init__()
         self.num_features = num_features
@@ -1206,11 +1254,7 @@ class MyModel(nn.Module):
         )
         # ----end of same layers----
         # ----new layers----
-        self.pyramid_pooling = nn.Sequential(
-            nn.AdaptiveAvgPool2d((None, 1)),  # Horizontal adaptive pooling
-            nn.Conv2d(num_features, num_features, kernel_size=3, padding=1), nn.SELU(),
-            nn.Conv2d(num_features, num_features, kernel_size=3, padding=1), nn.SELU()
-        )
+        self.pyramid_pooling = HorizontalPoolingPyramid()
 
         # Define refinement layers
         self.refine = nn.Sequential(
@@ -1242,6 +1286,7 @@ class MyModel(nn.Module):
 
 
     def forward(self, x0, x0_hd=None):
+        # ----same layers----
         x = (x0 - self.mean) / self.std
         backbone = self.backbone
         layer0 = backbone.conv1(x)
@@ -1259,24 +1304,53 @@ class MyModel(nn.Module):
         down2 = F.upsample(down2, size=down1.size()[2:], mode='bilinear')
         down3 = F.upsample(down3, size=down1.size()[2:], mode='bilinear')
         down4 = F.upsample(down4, size=down1.size()[2:], mode='bilinear')
+  
+        # down1 = self.pyramid_pooling(down1)
+        # down2 = self.pyramid_pooling(down2)
+        # down3 = self.pyramid_pooling(down3)
+        # down4 = self.pyramid_pooling(down4)
+        # print("down1.shape after HPM:",down1.shape) # [16, 128, 15]
+
+        # # 使用自适应池化操作确保输出形状与后续特征图尺寸一致
+        # down1 = F.adaptive_avg_pool2d(down1, output_size=(64, 64))
+        # down2 = F.adaptive_avg_pool2d(down2, output_size=(64, 64))
+        # down3 = F.adaptive_avg_pool2d(down3, output_size=(64, 64))
+        # down4 = F.adaptive_avg_pool2d(down4, output_size=(64, 64))
+
+        # down2 = F.upsample(down2.unsqueeze(3), size=(down1.size(2), down1.size(3)), mode='bilinear')
+        # down3 = F.upsample(down3.unsqueeze(3), size=(down1.size(2), down1.size(3)), mode='bilinear')
+        # down4 = F.upsample(down4.unsqueeze(3), size=(down1.size(2), down1.size(3)), mode='bilinear')
+
+        # print("down1.shape after upsample:",down1.shape)
+        # print("down2.shape after upsample:",down2.shape)
+        # print("down3.shape after upsample:",down3.shape)
+        # print("down4.shape after upsample:",down4.shape)
         concat = torch.cat((down1, down2, down3, down4), 1)
         n, c, h, w = down1.size()
+        # down1.shape: torch.Size([16, 128, 64, 64])
+        # down2.shape: torch.Size([16, 128, 64, 64])
+        # down3.shape: torch.Size([16, 128, 64, 64])
+        # down4.shape: torch.Size([16, 128, 64, 64])
+        # concat.shape: torch.Size([16, 512, 64, 64])
+        # ----same layers----
 
         # 添加pyramid_pooling模块
-        pyramid_pooled = self.pyramid_pooling(concat)
+        # pyramid_pooled = self.pyramid_pooling(concat)
 
-        # 添加refine模块
-        refined = self.refine(pyramid_pooled)
+        # # 添加refine模块
+        # refined = self.refine(pyramid_pooled)
 
-        # 添加dilated_conv模块
-        dilated_output = self.dilated_conv(refined)
+        # # 添加dilated_conv模块
+        # dilated_output = self.dilated_conv(refined)
 
-        # 添加residual_connection模块
-        residual_connected = self.residual_connection(concat)
+        # # 添加residual_connection模块
+        # residual_connected = self.residual_connection(concat)
 
-        # 添加channel_attention模块
-        channel_attended = self.channel_attention(concat)
+        # # 添加channel_attention模块
+        # channel_attended = self.channel_attention(concat)
 
+
+        # ----same layers----
         attention_phy = self.attention_phy(concat)
         attention_phy = F.softmax(attention_phy.view(n, 4, c, h, w), 1)
         f_phy = down1 * attention_phy[:, 0, :, :, :] + down2 * attention_phy[:, 1, :, :, :] + \
@@ -1318,10 +1392,15 @@ class MyModel(nn.Module):
         x_j3 = torch.exp(-torch.exp(log_log_x0_inverse + r3)).clamp(min=0., max=1.)
         r4 = F.upsample(self.j4(f4), size=x0.size()[2:], mode='bilinear')
         x_j4 = (torch.log(1 + torch.exp(log_x0 + r4))).clamp(min=0., max=1.)
-        attention_fusion = F.upsample(self.attention_fusion(concat), size=x0.size()[2:], mode='bilinear')
+
+        attention_fusion = F.upsample(self.attention_fusion(concat), size=x0.size()[2:], mode='bilinear') # [16, 15, 256, 256]
+        # 那一大坨W0~W4
+
         x_f0 = torch.sum(F.softmax(attention_fusion[:, :5, :, :], 1) *
                         torch.stack((x_phy[:, 0, :, :], x_j1[:, 0, :, :], x_j2[:, 0, :, :],
                                     x_j3[:, 0, :, :], x_j4[:, 0, :, :]), 1), 1, True)
+        # 3个通道分别处理 第一个通道
+
         x_f1 = torch.sum(F.softmax(attention_fusion[:, 5: 10, :, :], 1) *
                         torch.stack((x_phy[:, 1, :, :], x_j1[:, 1, :, :], x_j2[:, 1, :, :],
                                     x_j3[:, 1, :, :], x_j4[:, 1, :, :]), 1), 1, True)
@@ -1329,6 +1408,7 @@ class MyModel(nn.Module):
                         torch.stack((x_phy[:, 2, :, :], x_j1[:, 2, :, :], x_j2[:, 2, :, :],
                                     x_j3[:, 2, :, :], x_j4[:, 2, :, :]), 1), 1, True)
         x_fusion = torch.cat((x_f0, x_f1, x_f2), 1).clamp(min=0., max=1.)
+        # ----same layers----
 
         if self.training:
             return x_fusion, x_phy, x_j1, x_j2, x_j3, x_j4, t, a.view(x.size(0), -1)
