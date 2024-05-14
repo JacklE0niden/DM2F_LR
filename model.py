@@ -845,7 +845,7 @@ class DM2FNet(Base):
 
     def forward(self, x0, x0_hd=None):
         x = (x0 - self.mean) / self.std
-        print("x.shape", x.shape)
+        # print("x.shape", x.shape)
 
         backbone = self.backbone
 
@@ -933,50 +933,50 @@ class DM2FNet(Base):
         a = self.a(f_phy)
         t = F.upsample(self.t(f_phy), size=x0.size()[2:], mode='bilinear')
         x_phy = ((x0 - a * (1 - t)) / t.clamp(min=1e-8)).clamp(min=0., max=1.)
-        print("x_phy.shape:",x_phy.shape) # [16, 3, 256, 256]
+        # print("x_phy.shape:",x_phy.shape) # [16, 3, 256, 256]
 
         # J1 = I * R1
         r1 = F.upsample(self.j1(f1), size=x0.size()[2:], mode='bilinear')
         x_j1 = torch.exp(log_x0 + r1).clamp(min=0., max=1.)
-        print("x_j1.shape:",x_j1.shape) # [16, 3, 256, 256]
+        # print("x_j1.shape:",x_j1.shape) # [16, 3, 256, 256]
 
         # J2 = I + R2
         r2 = F.upsample(self.j2(f2), size=x0.size()[2:], mode='bilinear')
         x_j2 = ((x + r2) * self.std + self.mean).clamp(min=0., max=1.)
-        print("x_j2.shape:",x_j2.shape) # [16, 3, 256, 256]
+        # print("x_j2.shape:",x_j2.shape) # [16, 3, 256, 256]
 
         # J3 = I * exp(R3)
         r3 = F.upsample(self.j3(f3), size=x0.size()[2:], mode='bilinear')
         x_j3 = torch.exp(-torch.exp(log_log_x0_inverse + r3)).clamp(min=0., max=1.)
-        print("x_j3.shape:",x_j3.shape) # [16, 3, 256, 256]
+        # print("x_j3.shape:",x_j3.shape) # [16, 3, 256, 256]
 
         # J4 = log(1 + I * R4)
         r4 = F.upsample(self.j4(f4), size=x0.size()[2:], mode='bilinear')
         # x_j4 = (torch.log(1 + r4 * x0)).clamp(min=0, max=1)
         x_j4 = (torch.log(1 + torch.exp(log_x0 + r4))).clamp(min=0., max=1.)
-        print("x_j4.shape:",x_j4.shape) # [16, 3, 256, 256]
+        # print("x_j4.shape:",x_j4.shape) # [16, 3, 256, 256]
 
         attention_fusion = F.upsample(self.attention_fusion(concat), size=x0.size()[2:], mode='bilinear')
         # 那一大坨W0~W4
-        print("attention_fusion.shape:",attention_fusion.shape) # [16, 15, 256, 256]
+        # print("attention_fusion.shape:",attention_fusion.shape) # [16, 15, 256, 256]
         x_f0 = torch.sum(F.softmax(attention_fusion[:, :5, :, :], 1) *
                          torch.stack((x_phy[:, 0, :, :], x_j1[:, 0, :, :], x_j2[:, 0, :, :],
                                       x_j3[:, 0, :, :], x_j4[:, 0, :, :]), 1), 1, True)
-        print("x_f0.shape:",x_f0.shape) # [16, 1, 256, 256]
+        # print("x_f0.shape:",x_f0.shape) # [16, 1, 256, 256]
 
         x_f1 = torch.sum(F.softmax(attention_fusion[:, 5: 10, :, :], 1) *
                          torch.stack((x_phy[:, 1, :, :], x_j1[:, 1, :, :], x_j2[:, 1, :, :],
                                       x_j3[:, 1, :, :], x_j4[:, 1, :, :]), 1), 1, True)
         
-        print("x_f1.shape:",x_f1.shape)
+        # print("x_f1.shape:",x_f1.shape)
 
         x_f2 = torch.sum(F.softmax(attention_fusion[:, 10:, :, :], 1) *
                          torch.stack((x_phy[:, 2, :, :], x_j1[:, 2, :, :], x_j2[:, 2, :, :],
                                       x_j3[:, 2, :, :], x_j4[:, 2, :, :]), 1), 1, True)
-        print("x_f2.shape:",x_f2.shape)
+        # print("x_f2.shape:",x_f2.shape)
 
         x_fusion = torch.cat((x_f0, x_f1, x_f2), 1).clamp(min=0., max=1.)
-        print("x_fusion.shape:",x_fusion.shape) # [16, 3, 256, 256]
+        # print("x_fusion.shape:",x_fusion.shape) # [16, 3, 256, 256]
 
         if self.training:
             return x_fusion, x_phy, x_j1, x_j2, x_j3, x_j4, t, a.view(x.size(0), -1)

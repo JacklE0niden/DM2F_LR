@@ -46,7 +46,7 @@ PSNR的值越高，表示图像的质量损失越小，失真程度越低。
 
 # 实验结果
 
-## 测试1：20000 epoch train_ohaze
+## 测试1：20000 epoch train_ohaze（使用ohaze数据集训练与测试）
 
 | Image (Outdoor) | PSNR    | SSIM    | VIF     | MSE     |
 |-----------------|---------|---------|---------|---------|
@@ -64,7 +64,7 @@ PSNR的值越高，表示图像的质量损失越小，失真程度越低。
 - Average MSE: 0.006191
 
 
-## 测试2：40000 epoch train
+## 测试2：40000 epoch train（使用RESIDE数据集训练与测试）
 
 ### 在RESIDE数据测试集中测试
 
@@ -74,3 +74,26 @@ PSNR的值越高，表示图像的质量损失越小，失真程度越低。
 - Average SSIM: 0.974524
 - Average VIF: 1.006431
 - Average MSE: 0.000359
+
+### 在ohaze数据测试集中测试
+
+| Image (Outdoor) | PSNR    | SSIM    | VIF     | MSE     |
+|-----------------|---------|---------|---------|---------|
+| 40_outdoor_hazy | 17.6797 | 0.6992  | 0.7826  | 0.0171  |
+| 39_outdoor_hazy | 14.7837 | 0.6493  | 0.4540  | 0.0332  |
+| 38_outdoor_hazy | 14.8198 | 0.6975  | 0.5917  | 0.0330  |
+| 37_outdoor_hazy | 16.3474 | 0.6416  | 0.4661  | 0.0232  |
+| 36_outdoor_hazy | 18.1092 | 0.6869  | 0.5297  | 0.0155  |
+
+**Average:**
+- L1 Loss: 0.120498
+- Average PSNR: 16.347973
+- Average SSIM: 0.674902
+- Average VIF: 0.564828
+- Average MSE: 0.024381
+
+
+
+## 可视化1：ohaze测试集，不同训练集下效果对比
+从左至右分别为原始带雾图片，RESIDE数据集训练后测试，OHAZE数据集训练后测试，无雾图
+<img src='doc/img/ohaze_36_compare.png' height='250px'>

@@ -52,13 +52,21 @@ def main():
         criterion = nn.L1Loss().cuda()
 
         for name, root in to_test.items():
+            # if 'SOTS' in name:
+            #     print("dm2fnet")
+            #     net = DM2FNet().cuda()
+            #     dataset = SotsDataset(root)
+            # elif 'O-Haze' in name:
+            #     print("dm2fnet_wophy")
+            #     net = DM2FNet_woPhy().cuda()
+            #     dataset = OHazeDataset(root, 'test')
+            # else:
+            #     raise NotImplementedError
             if 'SOTS' in name:
-                print("dm2fnet")
                 net = DM2FNet().cuda()
                 dataset = SotsDataset(root)
             elif 'O-Haze' in name:
-                print("dm2fnet_wophy")
-                net = DM2FNet_woPhy().cuda()
+                net = DM2FNet().cuda()
                 dataset = OHazeDataset(root, 'test')
             else:
                 raise NotImplementedError
