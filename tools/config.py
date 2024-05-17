@@ -18,4 +18,4 @@ TEST_SOTS_ROOT = osp.abspath(osp.join(root, '../data', 'RESIDE', 'SOTS', 'nyuhaz
 # TEST_HSTS_ROOT = os.path.join(root, 'HSTS', 'synthetic')  # HSTS
 
 # HazeRD
-TRAIN_HAZERD_ROOT = osp.abspath(osp.join(root, '../data', 'HazeRD', 'simu'))
+HAZERD_ROOT = osp.abspath(osp.join(root, '../data', 'HazeRD'))

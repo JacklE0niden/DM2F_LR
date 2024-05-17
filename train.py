@@ -11,8 +11,8 @@ from torch.backends import cudnn
 from torch.utils.data import DataLoader
 
 from model import DM2FNet, MyModel
-from tools.config import TRAIN_ITS_ROOT, TEST_SOTS_ROOT
-from datasets import ItsDataset, SotsDataset
+from tools.config import TRAIN_ITS_ROOT, TEST_SOTS_ROOT, HAZERD_ROOT
+from datasets import ItsDataset, SotsDataset, HazeRDDataset
 from tools.utils import AvgMeter, check_mkdir
 
 from skimage.metrics import peak_signal_noise_ratio, structural_similarity
@@ -34,7 +34,7 @@ def parse_args():
 
 cfgs = {
     'use_physical': True,
-    'iter_num': 40000,
+    'iter_num': 200,
     'train_batch_size': 16,
     'last_iter': 0,
     'lr': 5e-4,
@@ -94,6 +94,8 @@ def train(net, optimizer):
             optimizer.param_groups[1]['lr'] = cfgs['lr'] * (1 - float(curr_iter) / cfgs['iter_num']) \
                                               ** cfgs['lr_decay']
 
+            # print("data:",data)
+            
             haze, gt_trans_map, gt_ato, gt, _ = data
 
             batch_size = haze.size(0)
@@ -193,6 +195,7 @@ if __name__ == '__main__':
     torch.cuda.set_device(int(args.gpus))
 
     train_dataset = ItsDataset(TRAIN_ITS_ROOT, True, cfgs['crop_size'])
+    # train_dataset = HazeRDDataset(TRAIN_HAZERD_ROOT, 'train', True, cfgs['crop_size'])
     train_loader = DataLoader(train_dataset, batch_size=cfgs['train_batch_size'], num_workers=4,
                               shuffle=True, drop_last=True)
 

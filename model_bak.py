@@ -5,31 +5,6 @@ from torch import nn
 import torchvision.models as models
 from resnext import ResNeXt101
 
-class HorizontalPoolingPyramid(): # 水平金字塔池化方法
-    """
-        Horizontal Pyramid Matching for Person Re-identification
-        Arxiv: https://arxiv.org/abs/1804.05275
-        Github: https://github.com/SHI-Labs/Horizontal-Pyramid-Matching
-    """
-
-    def __init__(self, bin_num=None):
-        if bin_num is None:
-            # bin_num = [16, 8, 4, 2, 1]
-            bin_num = [8, 4, 2, 1]
-        self.bin_num = bin_num
-    def __call__(self, x):
-        """
-            x  : [n, c, h, w]
-            ret: [n, c, p] 
-        """
-        n, c = x.size()[:2]
-        features = []
-        for b in self.bin_num:
-            z = x.view(n, c, b, -1) 
-            z = z.mean(-1) + z.max(-1)[0]
-            features.append(z)
-        return torch.cat(features, -1)
-
 class Base(nn.Module):
     def __init__(self):
         super(Base, self).__init__()
@@ -933,11 +908,8 @@ class DM2FNet(Base):
         log_log_x0_inverse = torch.log(torch.log(1 / x0.clamp(min=1e-8, max=(1 - 1e-8))))
 
         # J0 = (I - A0 * (1 - T0)) / T0
-        # print("f_phy.shape:", f_phy.shape)
         a = self.a(f_phy) # 对a的预测
-        # print("a.shape:", a.shape)
         t = F.upsample(self.t(f_phy), size=x0.size()[2:], mode='bilinear') # 对t的预测
-        # print("t.shape:", t.shape)
         x_phy = ((x0 - a * (1 - t)) / t.clamp(min=1e-8)).clamp(min=0., max=1.)
         # print("x_phy.shape:",x_phy.shape) # [16, 3, 256, 256]
 
@@ -1235,7 +1207,7 @@ class Dense(nn.Module):
 
 
         ############# 256-256  ##############
-        haze_class = models.densenet121(pretrained=False)
+        haze_class = models.densenet121(pretrained=True)
 
         self.conv0=haze_class.features.conv0
         self.norm0=haze_class.features.norm0
@@ -1366,9 +1338,6 @@ class MyModel(Base):
         del backbone.fc
         self.backbone = backbone
 
-        # newly added
-        self.t = Dense()
-
         # ----same layers----
         self.down1 = nn.Sequential(nn.Conv2d(256, num_features, kernel_size=1), nn.SELU())
         self.down2 = nn.Sequential(
@@ -1378,9 +1347,9 @@ class MyModel(Base):
         self.down4 = nn.Sequential(
             nn.Conv2d(2048, num_features, kernel_size=1), nn.SELU()        )
 
-        # self.t = nn.Sequential(
-        #     nn.Conv2d(num_features, num_features // 2, kernel_size=3, padding=1), nn.SELU(),
-        #     nn.Conv2d(num_features // 2, 1, kernel_size=1), nn.Sigmoid())
+        self.t = nn.Sequential(
+            nn.Conv2d(num_features, num_features // 2, kernel_size=3, padding=1), nn.SELU(),
+            nn.Conv2d(num_features // 2, 1, kernel_size=1), nn.Sigmoid())
         self.a = nn.Sequential(
             nn.AdaptiveAvgPool2d(1),
             nn.Conv2d(num_features, num_features, kernel_size=1), nn.SELU(),
@@ -1426,7 +1395,6 @@ class MyModel(Base):
         )
         # ----end of same layers----
         # ----new layers----
-        self.pyramid_pooling = HorizontalPoolingPyramid()
 
         # Define refinement layers
         self.refine = nn.Sequential(
@@ -1459,9 +1427,7 @@ class MyModel(Base):
 
     def forward(self, x0, x0_hd=None):
         # ----same layers----
-        x = (x0 - self.mean) / self.std # [16, 3, 256, 256]
-        t = self.t(x)
-        print("t.shape:", t.shape)
+        x = (x0 - self.mean) / self.std
         backbone = self.backbone
         layer0 = backbone.conv1(x)
         layer0 = backbone.bn1(layer0)
@@ -1529,7 +1495,7 @@ class MyModel(Base):
         attention_phy = F.softmax(attention_phy.view(n, 4, c, h, w), 1)
         f_phy = down1 * attention_phy[:, 0, :, :, :] + down2 * attention_phy[:, 1, :, :, :] + \
                 down3 * attention_phy[:, 2, :, :, :] + down4 * attention_phy[:, 3, :, :, :]
-        f_phy = self.refine(f_phy) + f_phy
+        f_phy = self.refine(f_phy) + f_phy # [16,128,64,64]
         attention1 = self.attention1(concat)
         attention1 = F.softmax(attention1.view(n, 4, c, h, w), 1)
         f1 = down1 * attention1[:, 0, :, :, :] + down2 * attention1[:, 1, :, :, :] + \
@@ -1555,8 +1521,8 @@ class MyModel(Base):
             x = (x0 - self.mean) / self.std
         log_x0 = torch.log(x0.clamp(min=1e-8))
         log_log_x0_inverse = torch.log(torch.log(1 / x0.clamp(min=1e-8, max=(1 - 1e-8))))
-        a = self.a(f_phy) # 对a的预测[16, 1, 1, 1]
-        # t = F.upsample(self.t(f_phy), size=x0.size()[2:], mode='bilinear') # 对t的预测[16, 1, 256, 256]
+        a = self.a(f_phy) # 对a的预测
+        t = F.upsample(self.t(f_phy), size=x0.size()[2:], mode='bilinear') # 对t的预测
         x_phy = ((x0 - a * (1 - t)) / t.clamp(min=1e-8)).clamp(min=0., max=1.)
         r1 = F.upsample(self.j1(f1), size=x0.size()[2:], mode='bilinear')
         x_j1 = torch.exp(log_x0 + r1).clamp(min=0., max=1.)

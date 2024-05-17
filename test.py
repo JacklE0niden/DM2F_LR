@@ -8,11 +8,11 @@ from torchvision import transforms
 from torch.backends import cudnn
 
 # defined
-from tools.config import TEST_SOTS_ROOT, OHAZE_ROOT
+from tools.config import TEST_SOTS_ROOT, OHAZE_ROOT, HAZERD_ROOT
 # from tools.config import OHAZE_ROOT
 from tools.utils import AvgMeter, check_mkdir, sliding_forward
 from model import DM2FNet, DM2FNet_woPhy
-from datasets import SotsDataset, OHazeDataset
+from datasets import SotsDataset, OHazeDataset, HazeRDDataset
 from torch.utils.data import DataLoader
 from skimage.metrics import peak_signal_noise_ratio, structural_similarity, mean_squared_error
 from skimage import color
@@ -38,7 +38,8 @@ def parse_args():
 
 to_test = {
     # 'SOTS': TEST_SOTS_ROOT,
-    'O-Haze': OHAZE_ROOT,
+    # 'O-Haze': OHAZE_ROOT,
+    'HazeRD': HAZERD_ROOT,
 }
 args = {
     'snapshot': 'iter_40000_loss_0.01267_lr_0.000000',
@@ -68,6 +69,9 @@ def main():
             elif 'O-Haze' in name:
                 net = DM2FNet().cuda()
                 dataset = OHazeDataset(root, 'test')
+            elif 'HazeRD' in name:
+                net = DM2FNet().cuda()
+                dataset = HazeRDDataset(root, 'test')
             else:
                 raise NotImplementedError
 

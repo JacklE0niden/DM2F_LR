@@ -57,6 +57,18 @@ def make_dataset_ohaze(root: str, mode: str):
                          os.path.join(root, mode, 'gt', gt_name)])
     return img_list
 
+def make_dataset_hazerd(root: str, mode: str):
+    print('Loading %s data from %s' % (mode, root))
+    img_list = []
+    gt_folder = os.path.join(root, 'gt')
+    hazy_folder = os.path.join(root, 'hazy')
+    for img_name in os.listdir(hazy_folder):
+        gt_name = img_name.split('_')[0] + '_RGB.jpg'
+        # print("gt_name:",gt_name)
+        gt_path = os.path.join(gt_folder, gt_name)
+        img_list.append([os.path.join(hazy_folder, img_name), gt_path])
+    return img_list
+
 
 def make_dataset_oihaze_train(root, suffix):
     items = []
@@ -284,6 +296,52 @@ class OHazeDataset(data.Dataset):
 
     def __len__(self):
         return len(self.imgs)
+    
+
+class HazeRDDataset(data.Dataset):
+    """
+    For HazeRD dataset
+    """
+
+    def __init__(self, root, mode, flip=False, crop=None, rotate=False):
+        self.root = root
+        self.imgs = make_dataset_hazerd(root, mode)
+        self.flip = flip
+        self.crop = crop
+        self.rotate = rotate
+
+    def __getitem__(self, index):
+        haze_path, gt_path = self.imgs[index]
+        # print("self.imgs:",self.imgs)
+        name = os.path.splitext(os.path.split(haze_path)[1])[0]
+
+        haze = Image.open(haze_path).convert('RGB')
+        # print("gtpath:", gt_path)
+        gt = Image.open(gt_path).convert('RGB')
+
+        assert haze.size == gt.size
+
+        if self.crop:
+            haze, gt = random_crop(self.crop, haze, gt)
+
+        if self.flip and random.random() < 0.5:
+            haze = haze.transpose(Image.FLIP_LEFT_RIGHT)
+            gt = gt.transpose(Image.FLIP_LEFT_RIGHT)
+
+        if self.rotate:
+            rotate_degree = np.random.choice([-90, 0, 90, 180])
+            haze = haze.rotate(rotate_degree, Image.BILINEAR)
+            gt = gt.rotate(rotate_degree, Image.BILINEAR)
+
+        haze = to_tensor(haze)
+        gt = to_tensor(gt)
+
+        return haze, gt, name
+
+    def __len__(self):
+        return len(self.imgs)
+
+
 
 
 class OIHaze(data.Dataset):
