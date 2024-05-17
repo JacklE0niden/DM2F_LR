@@ -1235,7 +1235,7 @@ class Dense(nn.Module):
 
 
         ############# 256-256  ##############
-        haze_class = models.densenet121(pretrained=False)
+        haze_class = models.densenet121(pretrained=True)
 
         self.conv0=haze_class.features.conv0
         self.norm0=haze_class.features.norm0
@@ -1460,8 +1460,9 @@ class MyModel(Base):
     def forward(self, x0, x0_hd=None):
         # ----same layers----
         x = (x0 - self.mean) / self.std # [16, 3, 256, 256]
+        #TODO 能不能不直接用原图去预测t，用提取后的特征去预测t
         t = self.t(x)
-        print("t.shape:", t.shape)
+        # print("t.shape:", t.shape)
         backbone = self.backbone
         layer0 = backbone.conv1(x)
         layer0 = backbone.bn1(layer0)
@@ -1471,6 +1472,8 @@ class MyModel(Base):
         layer2 = backbone.layer2(layer1)
         layer3 = backbone.layer3(layer2)
         layer4 = backbone.layer4(layer3)
+        #TODO 多级特征提取器，能不能换
+
         down1 = self.down1(layer1)
         down2 = self.down2(layer2)
         down3 = self.down3(layer3)
