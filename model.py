@@ -1227,6 +1227,13 @@ class TransitionBlock(nn.Module):
             out = F.dropout(out, p=self.droprate, inplace=False, training=self.training)
         return F.upsample_nearest(out, scale_factor=2)
     
+def pad_tensor(tensor, target_height, target_width):
+    _, _, h, w = tensor.size()
+    pad_h = target_height - h
+    pad_w = target_width - w
+    pad = (pad_w // 2, pad_w - pad_w // 2, pad_h // 2, pad_h - pad_h // 2)
+    return F.pad(tensor, pad, "constant", 0)
+
 class Dense(nn.Module):
     def __init__(self):
         super(Dense, self).__init__()
@@ -1294,30 +1301,40 @@ class Dense(nn.Module):
 
     def forward(self, x):
         ## 256x256
+        # print("x.shape:", x.shape)
         x0=self.pool0(self.relu0(self.norm0(self.conv0(x))))
 
         ## 64 X 64
         x1=self.dense_block1(x0)
-        # print x1.size()
+        # print("x1.shape:", x1.shape)
         x1=self.trans_block1(x1)
 
         ###  32x32
         x2=self.trans_block2(self.dense_block2(x1))
+        # print("x2.shape:", x2.shape)
         # print  x2.size()
 
 
         ### 16 X 16
         x3=self.trans_block3(self.dense_block3(x2))
+        # print("x3.shape:", x3.shape)
 
         # x3=Variable(x3.data,requires_grad=True)
 
         ## 8 X 8
         x4=self.trans_block4(self.dense_block4(x3))
+        # print("x4.shape:", x4.shape)
 
         x42=torch.cat([x4,x2],1)
+        # print("x42.shape:", x42.shape)
         ## 16 X 16
-        x5=self.trans_block5(self.dense_block5(x42))
+        x42 = self.dense_block5(x42)
+        # print("x42.shape:", x42.shape)
+        x5 = self.trans_block5(x42)
+        # x5=self.trans_block5(self.dense_block5(x42))
 
+        # print("x5.shape:", x5.shape, "x1.shape:", x1.shape) # x5.shape: torch.Size([8, 128, 56, 76]) x1.shape: torch.Size([8, 128, 57, 77])
+        x5 = pad_tensor(x5, x1.size(2), x1.size(3))
         x52=torch.cat([x5,x1],1)
         ##  32 X 32
         x6=self.trans_block6(self.dense_block6(x52))
@@ -1330,7 +1347,7 @@ class Dense(nn.Module):
 
         # print x8.size()
         # print x.size()
-
+        x8 = pad_tensor(x8, x.size(2), x.size(3))
         x8=torch.cat([x8,x],1)
 
         # print x8.size()
@@ -1460,6 +1477,7 @@ class MyModel(Base):
     def forward(self, x0, x0_hd=None):
         # ----same layers----
         x = (x0 - self.mean) / self.std # [16, 3, 256, 256]
+        print("x.shape111:",x.shape)
         #TODO 能不能不直接用原图去预测t，用提取后的特征去预测t
         t = self.t(x)
         # print("t.shape:", t.shape)

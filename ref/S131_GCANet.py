@@ -20,7 +20,7 @@ class ShareSepConv(nn.Module):
                         None, 1, self.padding, 1, inc)
 
 
-class SmoothDilatedResidualBlock(nn.Module):
+class SmoothDilatedResidualBlock(nn.Module):   
     def __init__(self, channel_num, dilation=1, group=1):
         super(SmoothDilatedResidualBlock, self).__init__()
         self.pre_conv1 = ShareSepConv(dilation*2-1)

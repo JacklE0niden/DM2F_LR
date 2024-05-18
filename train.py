@@ -34,7 +34,7 @@ def parse_args():
 
 cfgs = {
     'use_physical': True,
-    'iter_num': 200,
+    'iter_num': 40000,
     'train_batch_size': 16,
     'last_iter': 0,
     'lr': 5e-4,
@@ -43,6 +43,7 @@ cfgs = {
     'momentum': 0.9,
     'snapshot': '',
     'val_freq': 5000,
+    # 'val_freq': 3,
     'crop_size': 256
 }
 
@@ -168,7 +169,7 @@ def validate(net, curr_iter, optimizer):
 
             haze = haze.cuda()
             gt = gt.cuda()
-
+            print("haze.shape:", haze.shape)
             dehaze = net(haze)
 
             loss = criterion(dehaze, gt)

@@ -37,12 +37,13 @@ def parse_args():
     return parser.parse_args()
 
 to_test = {
-    # 'SOTS': TEST_SOTS_ROOT,
+    'SOTS': TEST_SOTS_ROOT,
     # 'O-Haze': OHAZE_ROOT,
-    'HazeRD': HAZERD_ROOT,
+    # 'HazeRD': HAZERD_ROOT,
 }
 args = {
-    'snapshot': 'iter_40000_loss_0.01267_lr_0.000000',
+    # 'snapshot': 'iter_40000_loss_0.01267_lr_0.000000',
+    'snapshot': 'iter_40000_loss_0.01658_lr_0.000000',
     # 'snapshot': 'iter_20000_loss_0.05956_lr_0.000000',
 }  
 to_pil = transforms.ToPILImage()

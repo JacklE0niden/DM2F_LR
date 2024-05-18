@@ -562,7 +562,7 @@ class dehaze(nn.Module):
   def forward(self, x):
 
 
-    tran=self.tran_dense(x)
+    tran=self.tran_dense(x) # 用来预测T
     atp= self.atp_est(x)
 
 
@@ -579,7 +579,7 @@ class dehaze(nn.Module):
     # threshold = nn.Threshold(10, 0.95)
 
     shape_out = shape_out1[2:4]
-    atp = F.avg_pool2d(atp, shape_out1[2])
+    atp = F.avg_pool2d(atp, shape_out1[2])  # 用中间量去预测A
     atp = self.upsample(self.relu(atp),size=shape_out)
 
 

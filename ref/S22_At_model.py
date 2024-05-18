@@ -106,7 +106,7 @@ class TransitionBlock(nn.Module):
         return F.upsample_nearest(out, scale_factor=2)
 
 
-class Dense_decoder(nn.Module):
+class Dense_decoder(nn.Module):  # 用来预测A和T
     def __init__(self):
         super(Dense_decoder, self).__init__()
         ############# Block5-up  16-16 ##############
