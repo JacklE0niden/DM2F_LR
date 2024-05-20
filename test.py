@@ -98,11 +98,12 @@ def main():
 
                 haze = haze.cuda()
 
-                if 'O-Haze' in name:
-                    res = sliding_forward(net, haze).detach()
-                else:
-                    res = net(haze).detach()
-
+                # if 'O-Haze' in name:
+                #     res = sliding_forward(net, haze).detach()
+                # else:
+                #     res = net(haze).detach()
+                res = sliding_forward(net, haze).detach()
+                
                 loss = criterion(res, gts.cuda())
                 loss_record.update(loss.item(), haze.size(0))
 

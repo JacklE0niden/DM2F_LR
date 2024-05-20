@@ -10,11 +10,10 @@ from torch import optim
 from torch.backends import cudnn
 from torch.utils.data import DataLoader
 
-from model import DM2FNet, MyModel
+from model import DM2FNet, MyModel, Discriminator
 from tools.config import TRAIN_ITS_ROOT, TEST_SOTS_ROOT, HAZERD_ROOT
 from datasets import ItsDataset, SotsDataset, HazeRDDataset
-from tools.utils import AvgMeter, check_mkdir
-
+from tools.utils import AvgMeter, check_mkdir, sliding_forward
 from skimage.metrics import peak_signal_noise_ratio, structural_similarity
 
 
@@ -38,6 +37,7 @@ cfgs = {
     'train_batch_size': 16,
     'last_iter': 0,
     'lr': 5e-4,
+    # 'lr_discriminator': 0.0001,
     'lr_decay': 0.9,
     'weight_decay': 0,
     'momentum': 0.9,
@@ -51,7 +51,7 @@ cfgs = {
 def main():
     # net = DM2FNet().cuda().train()
     net = MyModel().cuda().train()
-    
+    discriminator = Discriminator().cuda().train()
     # net = nn.DataParallel(net)
 
     optimizer = optim.Adam([
@@ -62,6 +62,7 @@ def main():
                     if name[-4:] != 'bias' and param.requires_grad],
          'lr': cfgs['lr'], 'weight_decay': cfgs['weight_decay']}
     ])
+    # discriminator_optimizer = optim.Adam(discriminator.parameters(), lr=cfgs['lr_discriminator'])
 
     if len(cfgs['snapshot']) > 0:
         print('training resumes from \'%s\'' % cfgs['snapshot'])
@@ -76,10 +77,10 @@ def main():
     check_mkdir(os.path.join(args.ckpt_path, args.exp_name))
     open(log_path, 'w').write(str(cfgs) + '\n\n')
 
-    train(net, optimizer)
+    train(net, optimizer, discriminator)
 
 
-def train(net, optimizer):
+def train(net, optimizer, discriminator):
     curr_iter = cfgs['last_iter']
 
     while curr_iter <= cfgs['iter_num']:
@@ -95,8 +96,6 @@ def train(net, optimizer):
             optimizer.param_groups[1]['lr'] = cfgs['lr'] * (1 - float(curr_iter) / cfgs['iter_num']) \
                                               ** cfgs['lr_decay']
 
-            # print("data:",data)
-            
             haze, gt_trans_map, gt_ato, gt, _ = data
 
             batch_size = haze.size(0)
@@ -120,22 +119,33 @@ def train(net, optimizer):
             loss_t = criterion(t, gt_trans_map)
             loss_a = criterion(a, gt_ato)
 
-            loss = loss_x_jf + loss_x_j0 + loss_x_j1 + loss_x_j2 + loss_x_j3 + loss_x_j4 \
-                   + 10 * loss_t + loss_a
-            loss.backward()
+            # fake_images = x_jf
 
+            # real_output = discriminator(gt)
+            # fake_output = discriminator(fake_images.detach())
+            # d_loss_real = criterion(real_output, torch.ones_like(real_output))
+            # d_loss_fake = criterion(fake_output, torch.zeros_like(fake_output))
+            # d_loss = d_loss_real + d_loss_fake
+
+            # Optimize Discriminator
+            # discriminator_optimizer.zero_grad()
+            # d_loss.backward()
+            # discriminator_optimizer.step()
+
+            # Optimize Generator
+            generator_loss = loss_x_jf + loss_x_j0 + loss_x_j1 + loss_x_j2 + loss_x_j3 + loss_x_j4 \
+                            + 10 * loss_t + loss_a
+            generator_loss.backward()
             optimizer.step()
 
-            # update recorder
-            train_loss_record.update(loss.item(), batch_size)
-
+            # Update recorder
+            train_loss_record.update(generator_loss.item(), batch_size)
             loss_x_jf_record.update(loss_x_jf.item(), batch_size)
             loss_x_j0_record.update(loss_x_j0.item(), batch_size)
             loss_x_j1_record.update(loss_x_j1.item(), batch_size)
             loss_x_j2_record.update(loss_x_j2.item(), batch_size)
             loss_x_j3_record.update(loss_x_j3.item(), batch_size)
             loss_x_j4_record.update(loss_x_j4.item(), batch_size)
-
             loss_t_record.update(loss_t.item(), batch_size)
             loss_a_record.update(loss_a.item(), batch_size)
 
@@ -157,6 +167,7 @@ def train(net, optimizer):
                 break
 
 
+
 def validate(net, curr_iter, optimizer):
     print('validating...')
     net.eval()
@@ -171,7 +182,7 @@ def validate(net, curr_iter, optimizer):
             gt = gt.cuda()
             print("haze.shape:", haze.shape)
             dehaze = net(haze)
-
+            # dehaze = sliding_forward(net, haze).detach()
             loss = criterion(dehaze, gt)
             loss_record.update(loss.item(), haze.size(0))
 
