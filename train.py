@@ -16,6 +16,8 @@ from datasets import ItsDataset, SotsDataset, HazeRDDataset
 from tools.utils import AvgMeter, check_mkdir, sliding_forward
 from skimage.metrics import peak_signal_noise_ratio, structural_similarity
 
+#newly added 损失函数的扩展
+from loss import contrast_loss, tone_loss
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a DM2FNet')
@@ -119,6 +121,10 @@ def train(net, optimizer):
             # transloss_t = transloss(t, gt_trans_map)
             loss_a = criterion(a, gt_ato)
 
+            # loss = loss_x_jf + loss_x_j0 + loss_x_j1 + loss_x_j2 + loss_x_j3 + loss_x_j4 \
+                #    + 10 * loss_t + loss_a
+            
+            
             loss = loss_x_jf + loss_x_j0 + loss_x_j1 + loss_x_j2 + loss_x_j3 + loss_x_j4 \
                    + 10 * loss_t + loss_a
             loss.backward()
@@ -126,7 +132,7 @@ def train(net, optimizer):
             optimizer.step()
 
             # update recorder
-            # train_loss_record.update(loss.item(), batch_size)
+            train_loss_record.update(loss.item(), batch_size)
 
             loss_x_jf_record.update(loss_x_jf.item(), batch_size)
             loss_x_j0_record.update(loss_x_j0.item(), batch_size)

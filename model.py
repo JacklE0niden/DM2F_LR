@@ -4,6 +4,7 @@ from torch import nn
 import matplotlib.pyplot as plt
 import time
 import os
+import cv2
 import numpy as np
 import torchvision.models as models
 from resnext import ResNeXt101
@@ -1288,140 +1289,6 @@ def pad_tensor(tensor, target_height, target_width):
     pad = (pad_w // 2, pad_w - pad_w // 2, pad_h // 2, pad_h - pad_h // 2)
     return F.pad(tensor, pad, "constant", 0)
 
-# class Dense(nn.Module): # 用来预测T的模块
-#     def __init__(self):
-#         super(Dense, self).__init__()
-#         ############# 256-256  ##############
-#         haze_class = models.densenet121(pretrained=True)
-
-#         self.conv0=haze_class.features.conv0
-#         self.norm0=haze_class.features.norm0
-#         self.relu0=haze_class.features.relu0
-#         self.pool0=haze_class.features.pool0
-
-#         ############# Block1-down 64-64  ##############
-#         self.dense_block1=haze_class.features.denseblock1
-#         self.trans_block1=haze_class.features.transition1
-
-#         ############# Block2-down 32-32  ##############
-#         self.dense_block2=haze_class.features.denseblock2
-#         self.trans_block2=haze_class.features.transition2
-
-#         ############# Block3-down  16-16 ##############
-#         self.dense_block3=haze_class.features.denseblock3
-#         self.trans_block3=haze_class.features.transition3
-
-#         ############# Block4-up  8-8  ##############
-#         self.dense_block4=BottleneckBlock(512,256)
-#         self.trans_block4=TransitionBlock(768,128)
-
-#         ############# Block5-up  16-16 ##############
-#         self.dense_block5=BottleneckBlock(384,256)
-#         self.trans_block5=TransitionBlock(640,128)
-
-#         ############# Block6-up 32-32   ##############
-#         self.dense_block6=BottleneckBlock(256,128)
-#         self.trans_block6=TransitionBlock(384,64)
-
-
-#         ############# Block7-up 64-64   ##############
-#         self.dense_block7=BottleneckBlock(64,64)
-#         self.trans_block7=TransitionBlock(128,32)
-
-#         ## 128 X  128
-#         ############# Block8-up c  ##############
-#         self.dense_block8=BottleneckBlock(32,32)
-#         self.trans_block8=TransitionBlock(64,16)
-
-#         self.conv_refin=nn.Conv2d(19,20,3,1,1)
-#         self.tanh=nn.Tanh()
-
-
-#         self.conv1010 = nn.Conv2d(20, 1, kernel_size=1,stride=1,padding=0)  # 1mm
-#         self.conv1020 = nn.Conv2d(20, 1, kernel_size=1,stride=1,padding=0)  # 1mm
-#         self.conv1030 = nn.Conv2d(20, 1, kernel_size=1,stride=1,padding=0)  # 1mm
-#         self.conv1040 = nn.Conv2d(20, 1, kernel_size=1,stride=1,padding=0)  # 1mm
-
-#         self.refine3= nn.Conv2d(20+4, 3, kernel_size=3,stride=1,padding=1)
-#         # self.refine3= nn.Conv2d(20+4, 3, kernel_size=7,stride=1,padding=3)
-
-#         self.upsample = F.upsample_nearest
-
-#         self.relu=nn.LeakyReLU(0.2, inplace=True)
-
-#     def forward(self, x):
-#         ## 256x256
-#         print("x.shape:", x.shape)
-#         x0=self.pool0(self.relu0(self.norm0(self.conv0(x))))
-
-#         ## 64 X 64
-#         x1=self.dense_block1(x0)
-#         # print("x1.shape:", x1.shape)
-#         x1=self.trans_block1(x1)
-
-#         ###  32x32
-#         x2=self.trans_block2(self.dense_block2(x1))
-#         # print("x2.shape:", x2.shape)
-#         # print  x2.size()
-
-
-#         ### 16 X 16
-#         x3=self.trans_block3(self.dense_block3(x2))
-#         # print("x3.shape:", x3.shape)
-
-#         # x3=Variable(x3.data,requires_grad=True)
-
-#         ## 8 X 8
-#         x4=self.trans_block4(self.dense_block4(x3))
-#         # print("x4.shape:", x4.shape)
-
-#         x42=torch.cat([x4,x2],1)
-#         # print("x42.shape:", x42.shape)
-#         ## 16 X 16
-#         x42 = self.dense_block5(x42)
-#         # print("x42.shape:", x42.shape)
-#         x5 = self.trans_block5(x42)
-#         # x5=self.trans_block5(self.dense_block5(x42))
-
-#         # print("x5.shape:", x5.shape, "x1.shape:", x1.shape) # x5.shape: torch.Size([8, 128, 56, 76]) x1.shape: torch.Size([8, 128, 57, 77])
-#         x5 = pad_tensor(x5, x1.size(2), x1.size(3))
-#         x52=torch.cat([x5,x1],1)
-#         ##  32 X 32
-#         x6=self.trans_block6(self.dense_block6(x52))
-
-#         ##  64 X 64
-#         x7=self.trans_block7(self.dense_block7(x6))
-
-#         ##  128 X 128
-#         x8=self.trans_block8(self.dense_block8(x7))
-
-#         # print x8.size()
-#         # print x.size()
-#         x8 = pad_tensor(x8, x.size(2), x.size(3))
-#         x8=torch.cat([x8,x],1)
-
-#         # print x8.size()
-
-#         x9=self.relu(self.conv_refin(x8))
-
-#         shape_out = x9.data.size()
-#         # print(shape_out)
-#         shape_out = shape_out[2:4]
-
-#         x101 = F.avg_pool2d(x9, 32)
-#         x102 = F.avg_pool2d(x9, 16)
-#         x103 = F.avg_pool2d(x9, 8)
-#         x104 = F.avg_pool2d(x9, 4)
-
-#         x1010 = self.upsample(self.relu(self.conv1010(x101)), size=shape_out)
-#         x1020 = self.upsample(self.relu(self.conv1020(x102)), size=shape_out)
-#         x1030 = self.upsample(self.relu(self.conv1030(x103)), size=shape_out)
-#         x1040 = self.upsample(self.relu(self.conv1040(x104)), size=shape_out)
-
-#         dehaze = torch.cat((x1010, x1020, x1030, x1040, x9), 1)
-#         dehaze = self.tanh(self.refine3(dehaze))
-
-#         return dehaze
 class UpsampleBlock(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(UpsampleBlock, self).__init__()
@@ -1525,12 +1392,6 @@ class Dense(nn.Module):  # 用来预测T的模块 （原有模块，直接在输
         self.conv1030 = nn.Conv2d(20, 1, kernel_size=1, stride=1, padding=0)
         self.conv1040 = nn.Conv2d(20, 1, kernel_size=1, stride=1, padding=0)
 
-        # A
-        # self.conv2010 = nn.Conv2d(20, 1, kernel_size=1, stride=1, padding=0)
-        # self.conv2020 = nn.Conv2d(20, 1, kernel_size=1, stride=1, padding=0)
-        # self.conv2030 = nn.Conv2d(20, 1, kernel_size=1, stride=1, padding=0)
-        # self.conv2040 = nn.Conv2d(20, 1, kernel_size=1, stride=1, padding=0)
-
         self.refine3 = nn.Conv2d(20 + 4, 3, kernel_size=3, stride=1, padding=1)
 
         self.upsample = F.interpolate  # 使用 interpolate 代替 upsample_nearest
@@ -1607,150 +1468,6 @@ class Dense(nn.Module):  # 用来预测T的模块 （原有模块，直接在输
 
         return dehaze
 
-# class BottleneckBlock(nn.Module):
-#     def __init__(self, in_channels, growth_rate):
-#         super(BottleneckBlock, self).__init__()
-#         self.bn1 = nn.BatchNorm2d(in_channels)
-#         self.conv1 = nn.Conv2d(in_channels, 4 * growth_rate, kernel_size=1, stride=1, bias=False)
-#         self.bn2 = nn.BatchNorm2d(4 * growth_rate)
-#         self.conv2 = nn.Conv2d(4 * growth_rate, growth_rate, kernel_size=3, stride=1, padding=1, bias=False)
-    
-#     def forward(self, x):
-#         out = self.conv1(F.relu(self.bn1(x)))
-#         out = self.conv2(F.relu(self.bn2(out)))
-#         return torch.cat([x, out], 1)
-
-# class TransitionBlock(nn.Module):
-#     def __init__(self, in_channels, out_channels):
-#         super(TransitionBlock, self).__init__()
-#         self.bn = nn.BatchNorm2d(in_channels)
-#         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=1, bias=False)
-#         self.pool = nn.AvgPool2d(kernel_size=2, stride=2)
-    
-#     def forward(self, x):
-#         out = self.conv(F.relu(self.bn(x)))
-#         out = self.pool(out)
-#         return out
-
-# class Dense(nn.Module):  # 用来预测T的模块 废弃了
-#     def __init__(self):
-#         super(Dense, self).__init__()
-        
-#         ############# Block1-down 32-32  ##############
-#         self.dense_block1 = BottleneckBlock(128, 64)
-#         self.trans_block1 = TransitionBlock(192, 64)
-
-#         ############# Block2-down 16-16  ##############
-#         self.dense_block2 = BottleneckBlock(64, 32)
-#         self.trans_block2 = TransitionBlock(96, 32)
-
-#         ############# Block3-down  8-8  ##############
-#         self.dense_block3 = BottleneckBlock(32, 16)
-#         self.trans_block3 = TransitionBlock(48, 16)
-
-#         ############# Block4-up  16-16  ##############
-#         self.dense_block4 = BottleneckBlock(16, 16)
-#         self.trans_block4 = TransitionBlock(32, 32)
-
-#         ############# Block5-up  32-32 ##############
-#         self.dense_block5 = BottleneckBlock(64, 32)  # Outputs 96 channels
-#         self.trans_block5 = TransitionBlock(96, 64)
-
-#         ############# Block6-up 64-64   ##############
-#         self.dense_block6 = BottleneckBlock(128, 64)
-#         self.trans_block6 = TransitionBlock(192, 128)
-
-#         ############# Block7-up 128-128   ##############
-#         self.dense_block7 = BottleneckBlock(128, 64)
-#         self.trans_block7 = TransitionBlock(192, 128)
-
-#         ############# Block8-up 256-256 ##############
-#         self.dense_block8 = BottleneckBlock(128, 128)
-#         self.trans_block8 = TransitionBlock(256, 64)
-
-#         self.conv_refin = nn.Conv2d(64 + 128, 20, 3, 1, 1)
-#         self.tanh = nn.Tanh()
-
-#         # T
-#         self.conv1010 = nn.Conv2d(20, 1, kernel_size=1, stride=1, padding=0)
-#         self.conv1020 = nn.Conv2d(20, 1, kernel_size=1, stride=1, padding=0)
-#         self.conv1030 = nn.Conv2d(20, 1, kernel_size=1, stride=1, padding=0)
-#         self.conv1040 = nn.Conv2d(20, 1, kernel_size=1, stride=1, padding=0)
-
-#         # A
-#         self.conv2010 = nn.Conv2d(20, 1, kernel_size=1, stride=1, padding=0)
-#         self.conv2020 = nn.Conv2d(20, 1, kernel_size=1, stride=1, padding=0)
-#         self.conv2030 = nn.Conv2d(20, 1, kernel_size=1, stride=1, padding=0)
-#         self.conv2040 = nn.Conv2d(20, 1, kernel_size=1, stride=1, padding=0)
-
-#         self.refine3 = nn.Conv2d(20 + 4, 3, kernel_size=3, stride=1, padding=1)
-
-#         self.upsample = F.interpolate  # 使用 interpolate 代替 upsample_nearest
-
-#         self.relu = nn.LeakyReLU(0.2, inplace=True)
-
-#         # 全连接层用于估计大气光值
-#         self.fc1 = nn.Linear(128, 256)
-#         self.fc2 = nn.Linear(256, 512)
-#         self.fc3 = nn.Linear(512, 3 * 256 * 256)
-
-#     def forward(self, x):
-#         ## 64x64
-#         x1 = self.dense_block1(x)
-#         x1 = self.trans_block1(x1)
-
-#         ### 16x16
-#         x2 = self.trans_block2(self.dense_block2(x1))
-#         # print("x2.shape:",x2.shape)
-#         ### 16x16
-#         x3 = self.trans_block3(self.dense_block3(x2))
-
-#         ### 8x8
-#         x4 = self.trans_block4(self.dense_block4(x3))
-
-#         x4 = F.interpolate(x4, size=x2.size()[2:])  # 调整x4的尺寸为x2的尺寸
-#         # print("x4.shape:",x4.shape)
-#         x42 = torch.cat([x4, x2], 1) # 在通道维度进行拼接
-#         # print("x42.shape:", x42.shape)
-#         x5 = self.trans_block5(self.dense_block5(x42))
-
-#         x5 = F.interpolate(x5, size=x1.size()[2:])  # 调整x5的尺寸为x1的尺寸
-#         x52 = torch.cat([x5, x1], 1)
-#         x6 = self.trans_block6(self.dense_block6(x52))
-
-#         x7 = self.trans_block7(self.dense_block7(x6))
-
-#         x8 = self.trans_block8(self.dense_block8(x7))
-#         x8 = pad_tensor(x8, 256, 256)  # 对x8进行填充以匹配输出尺寸
-
-#         x8 = torch.cat([x8, F.interpolate(x, size=(256, 256))], 1)  # 将输入调整为256x256并拼接
-#         x9 = self.relu(self.conv_refin(x8))
-
-#         shape_out = x9.data.size()[2:4]
-
-#         x101 = F.avg_pool2d(x9, 32)
-#         x102 = F.avg_pool2d(x9, 16)
-#         x103 = F.avg_pool2d(x9, 8)
-#         x104 = F.avg_pool2d(x9, 4)
-
-#         x1010 = self.upsample(self.relu(self.conv1010(x101)), size=shape_out)
-#         x1020 = self.upsample(self.relu(self.conv1020(x102)), size=shape_out)
-#         x1030 = self.upsample(self.relu(self.conv1030(x103)), size=shape_out)
-#         x1040 = self.upsample(self.relu(self.conv1040(x104)), size=shape_out)
-
-#         dehaze = torch.cat((x1010, x1020, x1030, x1040, x9), 1)
-#         dehaze = self.tanh(self.refine3(dehaze))
-
-#         x2010 = self.upsample(self.relu(self.conv2010(x101)), size=shape_out)
-#         x2020 = self.upsample(self.relu(self.conv2020(x102)), size=shape_out)
-#         x2030 = self.upsample(self.relu(self.conv2030(x103)), size=shape_out)
-#         x2040 = self.upsample(self.relu(self.conv2040(x104)), size=shape_out)
-
-#         a = torch.cat((x2010, x2020, x2030, x2040, x9), 1)
-#         a = self.tanh(self.refine3(a))
-
-#         return dehaze
-
 
 def blockUNet(in_c, out_c, name, transposed=False, bn=False, relu=True, dropout=False):
   block = nn.Sequential()
@@ -1768,132 +1485,6 @@ def blockUNet(in_c, out_c, name, transposed=False, bn=False, relu=True, dropout=
     block.add_module('%s_dropout' % name, nn.Dropout2d(0.5, inplace=True))
   return block
 
-# class G2(nn.Module): # 用来预测A的模块
-#   def __init__(self, input_nc, output_nc, nf):
-#     super(G2, self).__init__()
-#     # input is 256 x 256
-#     layer_idx = 1
-#     name = 'layer%d' % layer_idx
-#     layer1 = nn.Sequential()
-#     layer1.add_module(name, nn.Conv2d(input_nc, nf, 4, 2, 1, bias=False))
-#     # input is 128 x 128
-#     layer_idx += 1
-#     name = 'layer%d' % layer_idx
-#     layer2 = blockUNet(nf, nf*2, name, transposed=False, bn=True, relu=False, dropout=False)
-#     # input is 64 x 64
-#     layer_idx += 1
-#     name = 'layer%d' % layer_idx
-#     layer3 = blockUNet(nf*2, nf*4, name, transposed=False, bn=True, relu=False, dropout=False)
-#     # input is 32
-#     layer_idx += 1
-#     name = 'layer%d' % layer_idx
-#     layer4 = blockUNet(nf*4, nf*8, name, transposed=False, bn=True, relu=False, dropout=False)
-#     # input is 16
-#     layer_idx += 1
-#     name = 'layer%d' % layer_idx
-#     layer5 = blockUNet(nf*8, nf*8, name, transposed=False, bn=True, relu=False, dropout=False)
-#     # input is 8
-#     layer_idx += 1
-#     name = 'layer%d' % layer_idx
-#     layer6 = blockUNet(nf*8, nf*8, name, transposed=False, bn=True, relu=False, dropout=False)
-#     # input is 4
-#     layer_idx += 1
-#     name = 'layer%d' % layer_idx
-#     layer7 = blockUNet(nf*8, nf*8, name, transposed=False, bn=True, relu=False, dropout=False)
-#     # input is 2 x  2
-#     layer_idx += 1
-#     name = 'layer%d' % layer_idx
-#     layer8 = blockUNet(nf*8, nf*8, name, transposed=False, bn=True, relu=False, dropout=False)
-
-#     ## NOTE: decoder
-#     # input is 1
-#     name = 'dlayer%d' % layer_idx
-#     d_inc = nf*8
-#     dlayer8 = blockUNet(d_inc, nf*8, name, transposed=True, bn=False, relu=True, dropout=True)
-
-#     #import pdb; pdb.set_trace()
-#     # input is 2
-#     layer_idx -= 1
-#     name = 'dlayer%d' % layer_idx
-#     d_inc = nf*8*2
-#     dlayer7 = blockUNet(d_inc, nf*8, name, transposed=True, bn=True, relu=True, dropout=True)
-#     # input is 4
-#     layer_idx -= 1
-#     name = 'dlayer%d' % layer_idx
-#     d_inc = nf*8*2
-#     dlayer6 = blockUNet(d_inc, nf*8, name, transposed=True, bn=True, relu=True, dropout=True)
-#     # input is 8
-#     layer_idx -= 1
-#     name = 'dlayer%d' % layer_idx
-#     d_inc = nf*8*2
-#     dlayer5 = blockUNet(d_inc, nf*8, name, transposed=True, bn=True, relu=True, dropout=False)
-#     # input is 16
-#     layer_idx -= 1
-#     name = 'dlayer%d' % layer_idx
-#     d_inc = nf*8*2
-#     dlayer4 = blockUNet(d_inc, nf*4, name, transposed=True, bn=True, relu=True, dropout=False)
-#     # input is 32
-#     layer_idx -= 1
-#     name = 'dlayer%d' % layer_idx
-#     d_inc = nf*4*2
-#     dlayer3 = blockUNet(d_inc, nf*2, name, transposed=True, bn=True, relu=True, dropout=False)
-#     # input is 64
-#     layer_idx -= 1
-#     name = 'dlayer%d' % layer_idx
-#     d_inc = nf*2*2
-#     dlayer2 = blockUNet(d_inc, nf, name, transposed=True, bn=True, relu=True, dropout=False)
-#     # input is 128
-#     layer_idx -= 1
-#     name = 'dlayer%d' % layer_idx
-#     dlayer1 = nn.Sequential()
-#     d_inc = nf*2
-#     dlayer1.add_module('%s_relu' % name, nn.ReLU(inplace=True))
-#     dlayer1.add_module('%s_tconv' % name, nn.ConvTranspose2d(d_inc, output_nc, 4, 2, 1, bias=False))
-#     dlayer1.add_module('%s_tanh' % name, nn.LeakyReLU(0.2, inplace=True))
-
-#     self.layer1 = layer1
-#     self.layer2 = layer2
-#     self.layer3 = layer3
-#     self.layer4 = layer4
-#     self.layer5 = layer5
-#     self.layer6 = layer6
-#     self.layer7 = layer7
-#     self.layer8 = layer8
-#     self.dlayer8 = dlayer8
-#     self.dlayer7 = dlayer7
-#     self.dlayer6 = dlayer6
-#     self.dlayer5 = dlayer5
-#     self.dlayer4 = dlayer4
-#     self.dlayer3 = dlayer3
-#     self.dlayer2 = dlayer2
-#     self.dlayer1 = dlayer1
-
-#   def forward(self, x):
-#     print("input:", x.shape)
-#     out1 = self.layer1(x)
-#     out2 = self.layer2(out1)
-#     out3 = self.layer3(out2)
-#     out4 = self.layer4(out3)
-#     out5 = self.layer5(out4)
-#     out6 = self.layer6(out5)
-#     out7 = self.layer7(out6)
-#     out8 = self.layer8(out7)
-#     dout8 = self.dlayer8(out8)
-#     dout8_out7 = torch.cat([dout8, out7], 1)
-#     dout7 = self.dlayer7(dout8_out7)
-#     dout7_out6 = torch.cat([dout7, out6], 1)
-#     dout6 = self.dlayer6(dout7_out6)
-#     dout6_out5 = torch.cat([dout6, out5], 1)
-#     dout5 = self.dlayer5(dout6_out5)
-#     dout5_out4 = torch.cat([dout5, out4], 1)
-#     dout4 = self.dlayer4(dout5_out4)
-#     dout4_out3 = torch.cat([dout4, out3], 1)
-#     dout3 = self.dlayer3(dout4_out3)
-#     dout3_out2 = torch.cat([dout3, out2], 1)
-#     dout2 = self.dlayer2(dout3_out2)
-#     dout2_out1 = torch.cat([dout2, out1], 1)
-#     dout1 = self.dlayer1(dout2_out1)
-#     return dout1
 
 class G2(nn.Module):
     def __init__(self, input_nc, output_nc, nf):
@@ -1973,7 +1564,47 @@ class G2(nn.Module):
         print("dout1:", dout1.shape)
         return dout1
 
+# 增大对比度模块
+def clahe_contrast_enhancement(image_tensor, clip_limit=1.0, grid_size=(8, 8)):
+    """
+    使用局部自适应直方图均衡化（CLAHE）对输入图像张量进行对比度增强。
 
+    Args:
+        image_tensor (torch.Tensor): 输入图像张量，形状为 (batch_size, channels, height, width)。
+        clip_limit (float, optional): CLAHE中的截断限制。默认为2.0。
+        grid_size (tuple, optional): CLAHE中用于计算直方图的网格大小。默认为 (8, 8)。
+
+    Returns:
+        torch.Tensor: 对比度增强后的图像张量，与输入图像张量具有相同的形状。
+    """
+    # 使用detach()方法创建不需要梯度计算的副本
+    image_np = image_tensor.detach().permute(0, 2, 3, 1).cpu().numpy()
+
+    # 对每个图像应用CLAHE
+    for i in range(image_np.shape[0]):
+        # 将图像从 [0, 255] 范围转换为 [0, 1] 范围
+        image_uint8 = (image_np[i] * 255).astype(np.uint8)
+
+        # 转换为LAB颜色空间
+        lab_image = cv2.cvtColor(image_uint8, cv2.COLOR_RGB2LAB)
+
+        # 对亮度通道应用CLAHE
+        clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=grid_size)
+        lab_image[:, :, 0] = clahe.apply(lab_image[:, :, 0])
+
+        # 转换回RGB颜色空间
+        enhanced_image_uint8 = cv2.cvtColor(lab_image, cv2.COLOR_LAB2RGB)
+
+        # 将图像从 [0, 1] 范围转换回 [0, 255] 范围
+        enhanced_image = enhanced_image_uint8.astype(np.float32) / 255.0
+
+        # 将增强后的图像存储回原始数组中
+        image_np[i] = enhanced_image
+
+    # 将NumPy数组转换回图像张量
+    enhanced_image_tensor = torch.from_numpy(image_np).permute(0, 3, 1, 2).to(image_tensor.device)
+
+    return enhanced_image_tensor
 
 # TODO 原始模型是支持任意尺寸输入的，如何做到这一点
 # TODO 模型如果不支持任意尺寸输入，如何在测试集中也使用crop_size？或者说，如何把测试集还原回去
@@ -1991,6 +1622,7 @@ class MyModel(Base):
         # newly added
         # 传输估计模块
         self.t = Dense()
+        # 增大局部对比度模块
         # self.a = G2(input_nc=3,output_nc=3, nf=8)
         # ----same layers----
         self.down1 = nn.Sequential(nn.Conv2d(256, num_features, kernel_size=1), nn.SELU())
@@ -2000,6 +1632,7 @@ class MyModel(Base):
             nn.Conv2d(1024, num_features, kernel_size=1), nn.SELU()        )
         self.down4 = nn.Sequential(
             nn.Conv2d(2048, num_features, kernel_size=1), nn.SELU()        )
+        self.visualization_counter = 0  # 初始化可视化计数器
 
         # self.t = nn.Sequential(
         #     nn.Conv2d(num_features, num_features // 2, kernel_size=3, padding=1), nn.SELU(),
@@ -2130,12 +1763,17 @@ class MyModel(Base):
     #         return output_fusion
 
     def forward(self, x0, x0_hd=None):
+        # 在输入是增加局部对比度
+        self.visualization_counter += 1  # 每次前向传播增加计数器
+
+        # self.visualize(x0, prefix=f"{self.visualization_counter}_before_contrast_enhancement")
+        
+        x0 = clahe_contrast_enhancement(x0)
+        # self.visualize(x0, prefix=f"{self.visualization_counter}_after_contrast_enhancement")
         # ----same layers----
-        #newly added
-        # x0 = torch.tensor(x0)
-        # x0 = x0.to('cuda')
-        # print("type:", type(x0))
+        
         x = (x0 - self.mean) / self.std # [16, 3, 256, 256]
+
         # print("x.shape111:",x.shape)
         #TODO 能不能不直接用原图去预测t，用提取后的特征去预测t
         # 参考S21对预测T作出的修改
@@ -2163,32 +1801,10 @@ class MyModel(Base):
         concat = torch.cat((down1, down2, down3, down4), 1)
         # 绿色的那一大坨（MLF）的结果
 
-        #newly added
-        # t = self.ta(concat)
 
         n, c, h, w = down1.size()
         # down1.shape: torch.Size([16, 128, 64, 64])
-        # down2.shape: torch.Size([16, 128, 64, 64])
-        # down3.shape: torch.Size([16, 128, 64, 64])
-        # down4.shape: torch.Size([16, 128, 64, 64])
         # concat.shape: torch.Size([16, 512, 64, 64])
-        # ----same layers----
-
-        # 添加pyramid_pooling模块
-        # pyramid_pooled = self.pyramid_pooling(concat)
-
-        # # 添加refine模块
-        # refined = self.refine(pyramid_pooled)
-
-        # # 添加dilated_conv模块
-        # dilated_output = self.dilated_conv(refined)
-
-        # # 添加residual_connection模块
-        # residual_connected = self.residual_connection(concat)
-
-        # # 添加channel_attention模块
-        # channel_attended = self.channel_attention(concat)
-
 
         # ----same layers----
         attention_phy = self.attention_phy(concat)
@@ -2216,27 +1832,6 @@ class MyModel(Base):
         f4 = down1 * attention4[:, 0, :, :, :] + down2 * attention4[:, 1, :, :, :] + \
             down3 * attention4[:, 2, :, :, :] + down4 * attention4[:, 3, :, :, :]
         f4 = self.refine(f4) + f4
-        # attention5 = self.attention5(concat)
-        # attention5 = F.softmax(attention5.view(n, 4, c, h, w), 1)
-        # f5 = down1 * attention5[:, 0, :, :, :] + down2 * attention5[:, 1, :, :, :] + \
-        #     down3 * attention5[:, 2, :, :, :] + down4 * attention5[:, 3, :, :, :]
-        # f5 = self.refine(f5) + f5
-        # attention6 = self.attention6(concat)
-        # attention6 = F.softmax(attention6.view(n, 4, c, h, w), 1)
-        # f6 = down1 * attention6[:, 0, :, :, :] + down2 * attention6[:, 1, :, :, :] + \
-        #     down3 * attention6[:, 2, :, :, :] + down4 * attention6[:, 3, :, :, :]
-        # f6 = self.refine(f6) + f6
-
-        # 高斯滤波分解
-        # print("x0.shape:", x0.shape) # [16, 3, 256, 256]
-        # gaussian_output = self.gaussian_filter(x0)
-
-
-        # # 拉普拉斯金字塔分解
-        # laplacian_output = x0
-        # for laplacian_layer in self.laplacian_pyramid:
-        #     laplacian_output = laplacian_layer(laplacian_output)
-
 
         if x0_hd is not None:
             x0 = x0_hd
@@ -2255,16 +1850,8 @@ class MyModel(Base):
         x_j3 = torch.exp(-torch.exp(log_log_x0_inverse + r3)).clamp(min=0., max=1.)
         r4 = F.upsample(self.j4(f4), size=x0.size()[2:], mode='bilinear')
         x_j4 = (torch.log(1 + torch.exp(log_x0 + r4))).clamp(min=0., max=1.) # [16, 3, 256, 256]
-        # print("x_j4.shape:", x_j4.shape)
-
-        # newly added
-        # x_j5 = gaussian_output.clamp(min=0., max=1.)
-        # # print("x_j5.shape:", x_j5.shape)
-        # x_j6 = laplacian_output.clamp(min=0., max=1.)
-        # print("x_j6.shape:", x_j6.shape)
-
         # concat.shape: torch.Size([16, 512, 64, 64])
-        # newly added fusion(dilated conv) 
+
         # 一个有用的模块
         fusion = self.dilated_conv(concat)
         fusion = self.attention_fusion(fusion)
@@ -2289,26 +1876,28 @@ class MyModel(Base):
         # 第三个通道
 
         x_fusion = torch.cat((x_f0, x_f1, x_f2), 1).clamp(min=0., max=1.)
+
+        # newly added 在输出时增大局部对比度
+        # x_fusion = clahe_contrast_enhancement(x_fusion)
+
+        # self.visualize(x_fusion, prefix=f"dehaze_{self.visualization_counter}")
         # ----same layers----
         
         # if not self.training:
         #     self.visualize(x0, t)
+        
 
         if self.training:
             return x_fusion, x_phy, x_j1, x_j2, x_j3, x_j4, t, a.view(x.size(0), -1)
         else:
             return x_fusion
-
-    def visualize(self, x, t):
+        
+    def visualize(self, x, prefix=""):
         x = x.detach().cpu().numpy()
-        t = t.detach().cpu().numpy()
-        fig, axarr = plt.subplots(1, 2)
-        axarr[0].imshow(x[0].transpose(1, 2, 0))
-        axarr[0].set_title('Input Image')
-        axarr[1].imshow(t[0, 0], cmap='gray')
-        axarr[1].set_title('Transmission Map')
+        plt.imshow(x[0].transpose(1, 2, 0))
+        plt.title('Input Image')
         timestamp = time.strftime("%Y%m%d-%H%M%S")
-        plt.savefig(os.path.join(self.visualization_path, f'visualization_{timestamp}.png'))
+        plt.savefig(os.path.join(self.visualization_path, f'{prefix}_visualization_{timestamp}.png'))
         plt.close()
 
     def fusion(self, output_wb, output_ce, output_gc):
