@@ -124,12 +124,12 @@ def train(net, optimizer):
             loss_a = criterion(a, gt_ato)
 
             color_loss = color_consistency_loss_fn(x_jf, gt)
-            # loss = loss_x_jf + loss_x_j0 + loss_x_j1 + loss_x_j2 + loss_x_j3 + loss_x_j4 \
-                #    + 10 * loss_t + loss_a
-            
-            
             loss = loss_x_jf + loss_x_j0 + loss_x_j1 + loss_x_j2 + loss_x_j3 + loss_x_j4 \
-                   + 10 * loss_t + loss_a + color_loss
+                   + 10 * loss_t + loss_a
+            
+            
+            # loss = loss_x_jf + loss_x_j0 + loss_x_j1 + lo_x_j2 + loss_x_j3 + loss_x_j4 \
+            #        + 10 * loss_t + loss_a + color_lossss
             loss.backward()
 
             optimizer.step()

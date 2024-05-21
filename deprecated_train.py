@@ -473,3 +473,34 @@
 #         # Enhance contrast
 #         enhanced_contrast = x_gray / (local_contrast + 1e-5)
 #         return enhanced_contrast.expand_as(x)
+
+
+
+
+    # def forward(self, x0, x0_hd=None):
+    #     # 预处理图像
+    #     x0_wb, x0_ce, x0_gc = preprocess_image(x0)
+        
+    #     # 分别输入网络得到三个输出
+    #     output_wb, wbx_phy, wbx_j1, wbx_j2, wbx_j3, wbx_j4, wbt, wba = self.forward_single(x0_wb)
+    #     output_ce, cex_phy, cex_j1, cex_j2, cex_j3, cex_j4, cet, cea = self.forward_single(x0_ce)
+    #     output_gc, gcx_phy, gcx_j1, gcx_j2, gcx_j3, gcx_j4, gct, gca = self.forward_single(x0_gc)
+        
+    #     # 融合三个输出
+    #     output_fusion = self.fusion(output_wb, output_ce, output_gc)
+        
+    #     # if not self.training:
+    #     #     self.visualize(x0, output_fusion)
+        
+    #     if self.training:
+    #         x_phy = self.fusion(wbx_phy, cex_phy, gcx_phy)
+    #         x_j1 = self.fusion(wbx_j1, cex_j1, gcx_j1)
+    #         x_j2 = self.fusion(wbx_j2, cex_j2, gcx_j2)
+    #         x_j3 = self.fusion(wbx_j3, cex_j3, gcx_j3)
+    #         x_j4 = self.fusion(wbx_j4, cex_j4, gcx_j4)
+    #         t = self.fusion(wbt, cet, gct)
+    #         a = self.fusion(wba, cea, gca)
+
+    #         return output_fusion, x_phy, x_j1, x_j2, x_j3, x_j4, t, a
+    #     else:
+    #         return output_fusion

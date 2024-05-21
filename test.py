@@ -25,16 +25,16 @@ torch.manual_seed(2018)
 torch.cuda.set_device(0)
 
 ckpt_path = './ckpt'
-# exp_name = 'RESIDE_ITS'
+exp_name = 'RESIDE_ITS'
 # exp_name = 'O-Haze'
-exp_name = 'HazeRD'
+# exp_name = 'HazeRD'
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a DM2FNet')
     parser.add_argument(
         '--gpus', type=str, default='0', help='gpus to use ')
     parser.add_argument(
-        '--snapshot', type=str, default='iter_40000_loss_0.10286_lr_0.000000', help='snapshot to load for testing')
+        '--snapshot', type=str, default='version5_RESIDE_ITS', help='snapshot to load for testing')
     return parser.parse_args()
 
 to_test = {
@@ -46,7 +46,7 @@ args = {
     # 'snapshot': 'iter_40000_loss_0.01267_lr_0.000000',
     # 'snapshot': 'iter_40000_loss_0.01658_lr_0.000000',
     # 'snapshot': 'iter_20000_loss_0.05956_lr_0.000000',
-    'snapshot': 'iter_40000_loss_0.10286_lr_0.000000',
+    'snapshot': 'version5_RESIDE_ITS',
 }  
 to_pil = transforms.ToPILImage()
 

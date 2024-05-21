@@ -1282,13 +1282,14 @@ class DM2FNet_woPhy(Base_OHAZE):
         else:
             return x_fusion
 
-def pad_tensor(tensor, target_height, target_width):
+def pad_tensor(tensor, target_height, target_width): 
     _, _, h, w = tensor.size()
     pad_h = target_height - h
     pad_w = target_width - w
     pad = (pad_w // 2, pad_w - pad_w // 2, pad_h // 2, pad_h - pad_h // 2)
     return F.pad(tensor, pad, "constant", 0)
 
+# 上采样模块，比插值会好一点，看一下能不能替换
 class UpsampleBlock(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(UpsampleBlock, self).__init__()
@@ -1303,7 +1304,7 @@ class UpsampleBlock(nn.Module):
         return x
     
 
-
+# S21 用来预测T的DenseNet中使用
 class BottleneckBlock(nn.Module):
     def __init__(self, in_planes, out_planes, dropRate=0.0):
         super(BottleneckBlock, self).__init__()
@@ -1468,101 +1469,36 @@ class Dense(nn.Module):  # 用来预测T的模块 （原有模块，直接在输
 
         return dehaze
 
+# P02 像素注意机制模块
+class PALayer(nn.Module):
+    def __init__(self, channel):
+        super(PALayer, self).__init__()
+        self.pa = nn.Sequential(
+                nn.Conv2d(channel, channel // 8, 1, padding=0, bias=True),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(channel // 8, 1, 1, padding=0, bias=True),
+                nn.Sigmoid()
+        )
+    def forward(self, x):
+        y = self.pa(x)
+        return x * y
 
-def blockUNet(in_c, out_c, name, transposed=False, bn=False, relu=True, dropout=False):
-  block = nn.Sequential()
-  if relu:
-    block.add_module('%s_relu' % name, nn.ReLU(inplace=True))
-  else:
-    block.add_module('%s_leakyrelu' % name, nn.LeakyReLU(0.2, inplace=True))
-  if not transposed:
-    block.add_module('%s_conv' % name, nn.Conv2d(in_c, out_c, 4, 2, 1, bias=False))
-  else:
-    block.add_module('%s_tconv' % name, nn.ConvTranspose2d(in_c, out_c, 4, 2, 1, bias=False))
-  if bn:
-    block.add_module('%s_bn' % name, nn.BatchNorm2d(out_c))
-  if dropout:
-    block.add_module('%s_dropout' % name, nn.Dropout2d(0.5, inplace=True))
-  return block
-
-
-class G2(nn.Module):
-    def __init__(self, input_nc, output_nc, nf):
-        super(G2, self).__init__()
-        
-        # Encoder
-        self.layer1 = nn.Sequential(nn.Conv2d(input_nc, nf, 4, 2, 1, bias=False))
-        self.layer2 = blockUNet(nf, nf*2, 'layer2', transposed=False, bn=True, relu=False, dropout=False)
-        self.layer3 = blockUNet(nf*2, nf*4, 'layer3', transposed=False, bn=True, relu=False, dropout=False)
-        self.layer4 = blockUNet(nf*4, nf*8, 'layer4', transposed=False, bn=True, relu=False, dropout=False)
-        self.layer5 = blockUNet(nf*8, nf*8, 'layer5', transposed=False, bn=True, relu=False, dropout=False)
-        self.layer6 = blockUNet(nf*8, nf*8, 'layer6', transposed=False, bn=True, relu=False, dropout=False)
-        self.layer7 = blockUNet(nf*8, nf*8, 'layer7', transposed=False, bn=True, relu=False, dropout=False)
-        self.layer8 = blockUNet(nf*8, nf*8, 'layer8', transposed=False, bn=True, relu=False, dropout=False)
-
-        # Decoder
-        self.dlayer8 = blockUNet(nf*8, nf*8, 'dlayer8', transposed=True, bn=False, relu=True, dropout=True)
-        self.dlayer7 = blockUNet(nf*8*2, nf*8, 'dlayer7', transposed=True, bn=True, relu=True, dropout=True)
-        self.dlayer6 = blockUNet(nf*8*2, nf*8, 'dlayer6', transposed=True, bn=True, relu=True, dropout=True)
-        self.dlayer5 = blockUNet(nf*8*2, nf*8, 'dlayer5', transposed=True, bn=True, relu=True, dropout=False)
-        self.dlayer4 = blockUNet(nf*8*2, nf*4, 'dlayer4', transposed=True, bn=True, relu=True, dropout=False)
-        self.dlayer3 = blockUNet(nf*4*2, nf*2, 'dlayer3', transposed=True, bn=True, relu=True, dropout=False)
-        self.dlayer2 = blockUNet(nf*2*2, nf, 'dlayer2', transposed=True, bn=True, relu=True, dropout=False)
-        self.dlayer1 = nn.Sequential(
-            nn.ReLU(inplace=True),
-            nn.ConvTranspose2d(nf*2, output_nc, 4, 2, 1, bias=False),
-            nn.LeakyReLU(0.2, inplace=True)
+# P02 通道注意机制模块
+class CALayer(nn.Module):
+    def __init__(self, channel):
+        super(CALayer, self).__init__()
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.ca = nn.Sequential(
+                nn.Conv2d(channel, channel // 8, 1, padding=0, bias=True),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(channel // 8, channel, 1, padding=0, bias=True),
+                nn.Sigmoid()
         )
 
     def forward(self, x):
-        out1 = self.layer1(x) # [16, 8, 128, 128]
-        print("out1:", out1.shape)
-        out2 = self.layer2(out1) # [16, 16, 64, 64])
-
-        print("out2:", out2.shape)
-        out3 = self.layer3(out2) # [16, 32, 32, 32]
-        print("out3:", out3.shape)
-        out4 = self.layer4(out3) # [16, 64, 16, 16]
-        print("out4:", out4.shape)
-        out5 = self.layer5(out4) # [16, 64, 8, 8]
-        print("out5:", out5.shape)
-        out6 = self.layer6(out5) # [16, 64, 4, 4]
-        print("out6:", out6.shape)
-        out7 = self.layer7(out6) # [16, 64, 2, 2]
-        print("out7:", out7.shape)
-        out8 = self.layer8(out7) # [16, 64, 1, 1]
-        print("out8:", out8.shape)
-        dout8 = self.dlayer8(out8) # [16, 64, 2, 2]
-        print("dout8:", dout8.shape)
-        dout8_out7 = torch.cat([dout8, out7], 1) # [16, 128, 2, 2]
-        print("dout8_out7:", dout8_out7.shape)
-        dout7 = self.dlayer7(dout8_out7) # [16, 64, 4, 4]
-        print("dout7:", dout7.shape)
-        dout7_out6 = torch.cat([dout7, out6], 1) # [16, 128, 4, 4]
-        print("dout7_out6:", dout7_out6.shape)
-        dout6 = self.dlayer6(dout7_out6) # [16, 64, 8, 8]
-        print("dout6:", dout6.shape)
-        dout6_out5 = torch.cat([dout6, out5], 1) # [16, 128, 8, 8]
-        print("dout6_out5:", dout6_out5.shape)
-        dout5 = self.dlayer5(dout6_out5) # [16, 64, 16, 16]
-        print("dout5:", dout5.shape)
-        dout5_out4 = torch.cat([dout5, out4], 1) # [16, 128, 16, 16]
-        print("dout5_out4:", dout5_out4.shape)
-        dout4 = self.dlayer4(dout5_out4) # [16, 32, 32, 32]
-        print("dout4:", dout4.shape)
-        dout4_out3 = torch.cat([dout4, out3], 1) # [16, 64, 32, 32]
-        print("dout4_out3:", dout4_out3.shape)
-        dout3 = self.dlayer3(dout4_out3) # [16, 16, 64, 64]
-        print("dout3:", dout3.shape)
-        dout3_out2 = torch.cat([dout3, out2], 1) # [16, 32, 64, 64]
-        print("dout3_out2:", dout3_out2.shape)
-        dout2 = self.dlayer2(dout3_out2) # [16, 8, 128, 128]
-        print("dout2:", dout2.shape)
-        dout2_out1 = torch.cat([dout2, out1], 1) # [16, 16, 128, 128]
-        print("dout2_out1:", dout2_out1.shape)
-        dout1 = self.dlayer1(dout2_out1) # [16, 3, 256, 256]
-        print("dout1:", dout1.shape)
-        return dout1
+        y = self.avg_pool(x)
+        y = self.ca(y)
+        return x * y
 
 # 增大对比度模块
 def clahe_contrast_enhancement(image_tensor, clip_limit=1.0, grid_size=(8, 8)):
@@ -1621,7 +1557,7 @@ class MyModel(Base):
 
         # newly added
         # 传输估计模块
-        self.t = Dense()
+        # self.t = Dense()
         # 增大局部对比度模块
         # self.a = G2(input_nc=3,output_nc=3, nf=8)
         # ----same layers----
@@ -1633,10 +1569,17 @@ class MyModel(Base):
         self.down4 = nn.Sequential(
             nn.Conv2d(2048, num_features, kernel_size=1), nn.SELU()        )
         self.visualization_counter = 0  # 初始化可视化计数器
-
-        # self.t = nn.Sequential(
-        #     nn.Conv2d(num_features, num_features // 2, kernel_size=3, padding=1), nn.SELU(),
-        #     nn.Conv2d(num_features // 2, 1, kernel_size=1), nn.Sigmoid())
+        
+        # newly added P02 
+        # FA模块分别在通道方式和像素方式特征中组合通道注意力和像素注意力
+        # 输入与输出形状相同
+        self.ca_layer1 = CALayer(num_features)
+        self.pa_layer1 = PALayer(num_features)
+        
+        
+        self.t = nn.Sequential(
+            nn.Conv2d(num_features, num_features // 2, kernel_size=3, padding=1), nn.SELU(),
+            nn.Conv2d(num_features // 2, 1, kernel_size=1), nn.Sigmoid())
         # 大气光值估计模块(卷积)
         self.a = nn.Sequential(
             nn.AdaptiveAvgPool2d(1),
@@ -1685,7 +1628,7 @@ class MyModel(Base):
         self.j2 = nn.Sequential(nn.Conv2d(num_features, num_features // 2, kernel_size=3, padding=1), nn.SELU(),nn.Conv2d(num_features // 2, 3, kernel_size=1))
         self.j3 = nn.Sequential(nn.Conv2d(num_features, num_features // 2, kernel_size=3, padding=1), nn.SELU(),nn.Conv2d(num_features // 2, 3, kernel_size=1))
         self.j4 = nn.Sequential(nn.Conv2d(num_features, num_features // 2, kernel_size=3, padding=1), nn.SELU(),nn.Conv2d(num_features // 2, 3, kernel_size=1))
-        self.attention_fusion = nn.Sequential(
+        self.attention_fusion = nn.Sequential( # 最右边那个权重
             nn.Conv2d(num_features * 4, num_features, kernel_size=1), nn.SELU(),
             nn.Conv2d(num_features, num_features // 2, kernel_size=3, padding=1), nn.SELU(),
             nn.Conv2d(num_features // 2, num_features // 2, kernel_size=3, padding=1), nn.SELU(),
@@ -1734,33 +1677,6 @@ class MyModel(Base):
                 m.inplace = True
 
 
-    # def forward(self, x0, x0_hd=None):
-    #     # 预处理图像
-    #     x0_wb, x0_ce, x0_gc = preprocess_image(x0)
-        
-    #     # 分别输入网络得到三个输出
-    #     output_wb, wbx_phy, wbx_j1, wbx_j2, wbx_j3, wbx_j4, wbt, wba = self.forward_single(x0_wb)
-    #     output_ce, cex_phy, cex_j1, cex_j2, cex_j3, cex_j4, cet, cea = self.forward_single(x0_ce)
-    #     output_gc, gcx_phy, gcx_j1, gcx_j2, gcx_j3, gcx_j4, gct, gca = self.forward_single(x0_gc)
-        
-    #     # 融合三个输出
-    #     output_fusion = self.fusion(output_wb, output_ce, output_gc)
-        
-    #     # if not self.training:
-    #     #     self.visualize(x0, output_fusion)
-        
-    #     if self.training:
-    #         x_phy = self.fusion(wbx_phy, cex_phy, gcx_phy)
-    #         x_j1 = self.fusion(wbx_j1, cex_j1, gcx_j1)
-    #         x_j2 = self.fusion(wbx_j2, cex_j2, gcx_j2)
-    #         x_j3 = self.fusion(wbx_j3, cex_j3, gcx_j3)
-    #         x_j4 = self.fusion(wbx_j4, cex_j4, gcx_j4)
-    #         t = self.fusion(wbt, cet, gct)
-    #         a = self.fusion(wba, cea, gca)
-
-    #         return output_fusion, x_phy, x_j1, x_j2, x_j3, x_j4, t, a
-    #     else:
-    #         return output_fusion
 
     def forward(self, x0, x0_hd=None):
         # NOTE 方法1：在输入时增加局部对比度
@@ -1769,7 +1685,7 @@ class MyModel(Base):
 
         # self.visualize(x0, prefix=f"{self.visualization_counter}_before_contrast_enhancement")
         
-        x0 = clahe_contrast_enhancement(x0)
+        # x0 = clahe_contrast_enhancement(x0)
         # self.visualize(x0, prefix=f"{self.visualization_counter}_after_contrast_enhancement")
         # ----same layers----
         
@@ -1778,7 +1694,9 @@ class MyModel(Base):
         # print("x.shape111:",x.shape)
         #TODO 能不能不直接用原图去预测t，用提取后的特征去预测t
         # 参考S21对预测T作出的修改
-        t = self.t(x)
+        # t = self.t(x)
+
+
         backbone = self.backbone
         layer0 = backbone.conv1(x)
         layer0 = backbone.bn1(layer0)
@@ -1813,26 +1731,43 @@ class MyModel(Base):
         f_phy = down1 * attention_phy[:, 0, :, :, :] + down2 * attention_phy[:, 1, :, :, :] + \
                 down3 * attention_phy[:, 2, :, :, :] + down4 * attention_phy[:, 3, :, :, :]
         f_phy = self.refine(f_phy) + f_phy # [16, 128, 64, 64]
+
+        # newly added P02
+        f_phy = self.ca_layer1(f_phy) # 经过AFIM之后的特征
+
         attention1 = self.attention1(concat)
         attention1 = F.softmax(attention1.view(n, 4, c, h, w), 1)
         f1 = down1 * attention1[:, 0, :, :, :] + down2 * attention1[:, 1, :, :, :] + \
             down3 * attention1[:, 2, :, :, :] + down4 * attention1[:, 3, :, :, :]
         f1 = self.refine(f1) + f1
+        # newly added
+        f1 = self.pa_layer1(f1)
+
         attention2 = self.attention2(concat)
         attention2 = F.softmax(attention2.view(n, 4, c, h, w), 1)
         f2 = down1 * attention2[:, 0, :, :, :] + down2 * attention2[:, 1, :, :, :] + \
             down3 * attention2[:, 2, :, :, :] + down4 * attention2[:, 3, :, :, :]
         f2 = self.refine(f2) + f2
+        # newly added
+        f2 = self.pa_layer1(f2)
+
         attention3 = self.attention3(concat)
         attention3 = F.softmax(attention3.view(n, 4, c, h, w), 1)
         f3 = down1 * attention3[:, 0, :, :, :] + down2 * attention3[:, 1, :, :, :] + \
             down3 * attention3[:, 2, :, :, :] + down4 * attention3[:, 3, :, :, :]
         f3 = self.refine(f3) + f3
+        # newly added
+        f3 = self.pa_layer1(f3)
+
         attention4 = self.attention4(concat)
         attention4 = F.softmax(attention4.view(n, 4, c, h, w), 1)
         f4 = down1 * attention4[:, 0, :, :, :] + down2 * attention4[:, 1, :, :, :] + \
             down3 * attention4[:, 2, :, :, :] + down4 * attention4[:, 3, :, :, :]
         f4 = self.refine(f4) + f4
+        # newly added
+        f4 = self.pa_layer1(f4)
+
+        
 
         if x0_hd is not None:
             x0 = x0_hd
@@ -1842,7 +1777,8 @@ class MyModel(Base):
         a = self.a(f_phy) # 对a的预测[16, 1, 1, 1]
         # NOTE:modified
         # t = self.ta(f_phy)
-        # t = F.upsample(self.t(f_phy), size=x0.size()[2:], mode='bilinear') # 对t的预测[16, 1, 256, 256]
+        # 对t和a的预测是经过AFIM之后才进行的，并且只用了两个卷积层，似乎有一些草率，能否修改呢？
+        t = F.upsample(self.t(f_phy), size=x0.size()[2:], mode='bilinear') # 对t的预测[16, 1, 256, 256] 
         x_phy = ((x0 - a * (1 - t)) / t.clamp(min=1e-8)).clamp(min=0., max=1.)
         r1 = F.upsample(self.j1(f1), size=x0.size()[2:], mode='bilinear')
         x_j1 = torch.exp(log_x0 + r1).clamp(min=0., max=1.)
@@ -1857,6 +1793,8 @@ class MyModel(Base):
         # 一个有用的模块
         fusion = self.dilated_conv(concat)
         fusion = self.attention_fusion(fusion)
+
+        # fusion = self.attention_fusion(concat)
         # print("fusion.shape:", fusion.shape)#[16, 15, 64, 64]
 
         attention_fusion = F.upsample(fusion, size=x0.size()[2:], mode='bilinear') # [16, 15, 256, 256]
