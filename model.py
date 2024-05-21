@@ -1763,7 +1763,8 @@ class MyModel(Base):
     #         return output_fusion
 
     def forward(self, x0, x0_hd=None):
-        # 在输入是增加局部对比度
+        # NOTE 方法1：在输入时增加局部对比度
+        # newly added
         self.visualization_counter += 1  # 每次前向传播增加计数器
 
         # self.visualize(x0, prefix=f"{self.visualization_counter}_before_contrast_enhancement")
@@ -1839,6 +1840,7 @@ class MyModel(Base):
         log_x0 = torch.log(x0.clamp(min=1e-8))
         log_log_x0_inverse = torch.log(torch.log(1 / x0.clamp(min=1e-8, max=(1 - 1e-8))))
         a = self.a(f_phy) # 对a的预测[16, 1, 1, 1]
+        # NOTE:modified
         # t = self.ta(f_phy)
         # t = F.upsample(self.t(f_phy), size=x0.size()[2:], mode='bilinear') # 对t的预测[16, 1, 256, 256]
         x_phy = ((x0 - a * (1 - t)) / t.clamp(min=1e-8)).clamp(min=0., max=1.)

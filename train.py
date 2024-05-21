@@ -18,6 +18,7 @@ from skimage.metrics import peak_signal_noise_ratio, structural_similarity
 
 #newly added 损失函数的扩展
 from loss import contrast_loss, tone_loss
+from loss import ColorConsistencyLoss
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a DM2FNet')
@@ -82,13 +83,14 @@ def main():
 
 def train(net, optimizer):
     curr_iter = cfgs['last_iter']
-
+    color_consistency_loss_fn = ColorConsistencyLoss(weight=1.0)  # 实例化 ColorConsistencyLoss
     while curr_iter <= cfgs['iter_num']:
         train_loss_record = AvgMeter()
         loss_x_jf_record, loss_x_j0_record = AvgMeter(), AvgMeter()
         loss_x_j1_record, loss_x_j2_record = AvgMeter(), AvgMeter()
         loss_x_j3_record, loss_x_j4_record = AvgMeter(), AvgMeter()
         loss_t_record, loss_a_record = AvgMeter(), AvgMeter()
+        color_loss_record = AvgMeter()
         # transloss_t_record = AvgMeter()
 
         for data in train_loader:
@@ -121,12 +123,13 @@ def train(net, optimizer):
             # transloss_t = transloss(t, gt_trans_map)
             loss_a = criterion(a, gt_ato)
 
+            color_loss = color_consistency_loss_fn(x_jf, gt)
             # loss = loss_x_jf + loss_x_j0 + loss_x_j1 + loss_x_j2 + loss_x_j3 + loss_x_j4 \
                 #    + 10 * loss_t + loss_a
             
             
             loss = loss_x_jf + loss_x_j0 + loss_x_j1 + loss_x_j2 + loss_x_j3 + loss_x_j4 \
-                   + 10 * loss_t + loss_a
+                   + 10 * loss_t + loss_a + color_loss
             loss.backward()
 
             optimizer.step()
@@ -143,6 +146,7 @@ def train(net, optimizer):
 
             loss_t_record.update(loss_t.item(), batch_size)
             # transloss_t_record.update(transloss_t.item(), batch_size)
+            color_loss_record.update(color_loss.item(), batch_size)
             loss_a_record.update(loss_a.item(), batch_size)
 
             curr_iter += 1
@@ -155,10 +159,10 @@ def train(net, optimizer):
             #        loss_x_j1_record.avg, loss_x_j2_record.avg, loss_x_j3_record.avg, loss_x_j4_record.avg,
             #        loss_t_record.avg, transloss_t_record.avg, loss_a_record.avg, optimizer.param_groups[1]['lr'])
             log = '[iter %d], [train loss %.5f], [loss_x_fusion %.5f], [loss_x_phy %.5f], [loss_x_j1 %.5f], ' \
-                  '[loss_x_j2 %.5f], [loss_x_j3 %.5f], [loss_x_j4 %.5f], [loss_t %.5f],, [loss_a %.5f], ' \
+                  '[loss_x_j2 %.5f], [loss_x_j3 %.5f], [loss_x_j4 %.5f], [color_loss %.5f], [loss_t %.5f], [loss_a %.5f], ' \
                   '[lr %.13f]' % \
                   (curr_iter, train_loss_record.avg, loss_x_jf_record.avg, loss_x_j0_record.avg,
-                   loss_x_j1_record.avg, loss_x_j2_record.avg, loss_x_j3_record.avg, loss_x_j4_record.avg,
+                   loss_x_j1_record.avg, loss_x_j2_record.avg, loss_x_j3_record.avg, loss_x_j4_record.avg,color_loss_record.avg, 
                    loss_t_record.avg, loss_a_record.avg, optimizer.param_groups[1]['lr'])
             print(log)
             open(log_path, 'a').write(log + '\n')
