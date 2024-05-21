@@ -11,7 +11,7 @@ from torch.backends import cudnn
 from tools.config import TEST_SOTS_ROOT, OHAZE_ROOT, HAZERD_ROOT
 # from tools.config import OHAZE_ROOT
 from tools.utils import AvgMeter, check_mkdir, sliding_forward
-from model import DM2FNet, DM2FNet_woPhy
+from model import DM2FNet, DM2FNet_woPhy, MyModel
 from datasets import SotsDataset, OHazeDataset, HazeRDDataset
 from torch.utils.data import DataLoader
 from skimage.metrics import peak_signal_noise_ratio, structural_similarity, mean_squared_error
@@ -25,15 +25,16 @@ torch.manual_seed(2018)
 torch.cuda.set_device(0)
 
 ckpt_path = './ckpt'
-exp_name = 'RESIDE_ITS'
+# exp_name = 'RESIDE_ITS'
 # exp_name = 'O-Haze'
+exp_name = 'HazeRD'
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a DM2FNet')
     parser.add_argument(
         '--gpus', type=str, default='0', help='gpus to use ')
     parser.add_argument(
-        '--snapshot', type=str, default='iter_40000_loss_0.01267_lr_0.000000', help='snapshot to load for testing')
+        '--snapshot', type=str, default='iter_40000_loss_0.10286_lr_0.000000', help='snapshot to load for testing')
     return parser.parse_args()
 
 to_test = {
@@ -43,8 +44,9 @@ to_test = {
 }
 args = {
     # 'snapshot': 'iter_40000_loss_0.01267_lr_0.000000',
-    'snapshot': 'iter_40000_loss_0.01658_lr_0.000000',
+    # 'snapshot': 'iter_40000_loss_0.01658_lr_0.000000',
     # 'snapshot': 'iter_20000_loss_0.05956_lr_0.000000',
+    'snapshot': 'iter_40000_loss_0.10286_lr_0.000000',
 }  
 to_pil = transforms.ToPILImage()
 
@@ -65,13 +67,16 @@ def main():
             # else:
             #     raise NotImplementedError
             if 'SOTS' in name:
-                net = DM2FNet().cuda()
+                # net = DM2FNet().cuda()
+                net = MyModel().cuda()
                 dataset = SotsDataset(root)
             elif 'O-Haze' in name:
-                net = DM2FNet().cuda()
+                # net = DM2FNet().cuda()
+                net = MyModel().cuda()
                 dataset = OHazeDataset(root, 'test')
             elif 'HazeRD' in name:
-                net = DM2FNet().cuda()
+                # net = DM2FNet().cuda()
+                net = MyModel().cuda()
                 dataset = HazeRDDataset(root, 'test')
             else:
                 raise NotImplementedError

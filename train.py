@@ -34,7 +34,7 @@ def parse_args():
 cfgs = {
     'use_physical': True,
     'iter_num': 40000,
-    'train_batch_size': 16,
+    'train_batch_size': 1,
     'last_iter': 0,
     'lr': 5e-4,
     # 'lr_discriminator': 0.0001,
@@ -51,7 +51,6 @@ cfgs = {
 def main():
     # net = DM2FNet().cuda().train()
     net = MyModel().cuda().train()
-    discriminator = Discriminator().cuda().train()
     # net = nn.DataParallel(net)
 
     optimizer = optim.Adam([
@@ -62,7 +61,6 @@ def main():
                     if name[-4:] != 'bias' and param.requires_grad],
          'lr': cfgs['lr'], 'weight_decay': cfgs['weight_decay']}
     ])
-    # discriminator_optimizer = optim.Adam(discriminator.parameters(), lr=cfgs['lr_discriminator'])
 
     if len(cfgs['snapshot']) > 0:
         print('training resumes from \'%s\'' % cfgs['snapshot'])
@@ -77,10 +75,10 @@ def main():
     check_mkdir(os.path.join(args.ckpt_path, args.exp_name))
     open(log_path, 'w').write(str(cfgs) + '\n\n')
 
-    train(net, optimizer, discriminator)
+    train(net, optimizer)
 
 
-def train(net, optimizer, discriminator):
+def train(net, optimizer):
     curr_iter = cfgs['last_iter']
 
     while curr_iter <= cfgs['iter_num']:
@@ -89,6 +87,7 @@ def train(net, optimizer, discriminator):
         loss_x_j1_record, loss_x_j2_record = AvgMeter(), AvgMeter()
         loss_x_j3_record, loss_x_j4_record = AvgMeter(), AvgMeter()
         loss_t_record, loss_a_record = AvgMeter(), AvgMeter()
+        # transloss_t_record = AvgMeter()
 
         for data in train_loader:
             optimizer.param_groups[0]['lr'] = 2 * cfgs['lr'] * (1 - float(curr_iter) / cfgs['iter_num']) \
@@ -117,42 +116,40 @@ def train(net, optimizer, discriminator):
             loss_x_j4 = criterion(x_j4, gt)
 
             loss_t = criterion(t, gt_trans_map)
+            # transloss_t = transloss(t, gt_trans_map)
             loss_a = criterion(a, gt_ato)
 
-            # fake_images = x_jf
+            loss = loss_x_jf + loss_x_j0 + loss_x_j1 + loss_x_j2 + loss_x_j3 + loss_x_j4 \
+                   + 10 * loss_t + loss_a
+            loss.backward()
 
-            # real_output = discriminator(gt)
-            # fake_output = discriminator(fake_images.detach())
-            # d_loss_real = criterion(real_output, torch.ones_like(real_output))
-            # d_loss_fake = criterion(fake_output, torch.zeros_like(fake_output))
-            # d_loss = d_loss_real + d_loss_fake
-
-            # Optimize Discriminator
-            # discriminator_optimizer.zero_grad()
-            # d_loss.backward()
-            # discriminator_optimizer.step()
-
-            # Optimize Generator
-            generator_loss = loss_x_jf + loss_x_j0 + loss_x_j1 + loss_x_j2 + loss_x_j3 + loss_x_j4 \
-                            + 10 * loss_t + loss_a
-            generator_loss.backward()
             optimizer.step()
 
-            # Update recorder
-            train_loss_record.update(generator_loss.item(), batch_size)
+            # update recorder
+            # train_loss_record.update(loss.item(), batch_size)
+
             loss_x_jf_record.update(loss_x_jf.item(), batch_size)
             loss_x_j0_record.update(loss_x_j0.item(), batch_size)
             loss_x_j1_record.update(loss_x_j1.item(), batch_size)
             loss_x_j2_record.update(loss_x_j2.item(), batch_size)
             loss_x_j3_record.update(loss_x_j3.item(), batch_size)
             loss_x_j4_record.update(loss_x_j4.item(), batch_size)
+
             loss_t_record.update(loss_t.item(), batch_size)
+            # transloss_t_record.update(transloss_t.item(), batch_size)
             loss_a_record.update(loss_a.item(), batch_size)
 
             curr_iter += 1
-
+            
+            # newly added transloss_t
+            # log = '[iter %d], [train loss %.5f], [loss_x_fusion %.5f], [loss_x_phy %.5f], [loss_x_j1 %.5f], ' \
+            #       '[loss_x_j2 %.5f], [loss_x_j3 %.5f], [loss_x_j4 %.5f], [loss_t %.5f], [transloss_t %.5f], [loss_a %.5f], ' \
+            #       '[lr %.13f]' % \
+            #       (curr_iter, train_loss_record.avg, loss_x_jf_record.avg, loss_x_j0_record.avg,
+            #        loss_x_j1_record.avg, loss_x_j2_record.avg, loss_x_j3_record.avg, loss_x_j4_record.avg,
+            #        loss_t_record.avg, transloss_t_record.avg, loss_a_record.avg, optimizer.param_groups[1]['lr'])
             log = '[iter %d], [train loss %.5f], [loss_x_fusion %.5f], [loss_x_phy %.5f], [loss_x_j1 %.5f], ' \
-                  '[loss_x_j2 %.5f], [loss_x_j3 %.5f], [loss_x_j4 %.5f], [loss_t %.5f], [loss_a %.5f], ' \
+                  '[loss_x_j2 %.5f], [loss_x_j3 %.5f], [loss_x_j4 %.5f], [loss_t %.5f],, [loss_a %.5f], ' \
                   '[lr %.13f]' % \
                   (curr_iter, train_loss_record.avg, loss_x_jf_record.avg, loss_x_j0_record.avg,
                    loss_x_j1_record.avg, loss_x_j2_record.avg, loss_x_j3_record.avg, loss_x_j4_record.avg,
@@ -167,7 +164,6 @@ def train(net, optimizer, discriminator):
                 break
 
 
-
 def validate(net, curr_iter, optimizer):
     print('validating...')
     net.eval()
@@ -180,9 +176,9 @@ def validate(net, curr_iter, optimizer):
 
             haze = haze.cuda()
             gt = gt.cuda()
-            print("haze.shape:", haze.shape)
+
             dehaze = net(haze)
-            # dehaze = sliding_forward(net, haze).detach()
+
             loss = criterion(dehaze, gt)
             loss_record.update(loss.item(), haze.size(0))
 
@@ -195,19 +191,28 @@ def validate(net, curr_iter, optimizer):
 
     net.train()
 
+class TransLoss(nn.Module):
+    def __init__(self):
+        super(TransLoss, self).__init__()
+
+    def forward(self, test_output, target_output):
+        # Ensure there are no zero values to avoid division by zero
+        test_output = torch.clamp(test_output, min=1e-10)
+        target_output = torch.clamp(target_output, min=1e-10)
+        
+        # Compute the custom loss
+        loss = torch.abs((1/test_output - 1/target_output)*1e-10).mean()
+        return loss
+
 
 if __name__ == '__main__':
     args = parse_args()
-    print("args parsed.......")
+
     # os.environ['CUDA_VISIBLE_DEVICES'] = args.gpus
-    cudnn.benchmark = True
-    print("gpus = ", args.gpus)
-    
     cudnn.benchmark = True
     torch.cuda.set_device(int(args.gpus))
 
     train_dataset = ItsDataset(TRAIN_ITS_ROOT, True, cfgs['crop_size'])
-    # train_dataset = HazeRDDataset(TRAIN_HAZERD_ROOT, 'train', True, cfgs['crop_size'])
     train_loader = DataLoader(train_dataset, batch_size=cfgs['train_batch_size'], num_workers=4,
                               shuffle=True, drop_last=True)
 
@@ -215,6 +220,7 @@ if __name__ == '__main__':
     val_loader = DataLoader(val_dataset, batch_size=8)
 
     criterion = nn.L1Loss().cuda()
+    transloss = TransLoss().cuda()
     log_path = os.path.join(args.ckpt_path, args.exp_name, str(datetime.datetime.now()) + '.txt')
 
     main()

@@ -99,6 +99,11 @@ PSNR的值越高，表示图像的质量损失越小，失真程度越低。
 <img src='doc/img/ohaze_36_compare.png' height='250px'>
 
 
-## 只修改预测T的
+## 只修改预测T的_version_1
 
 [SOTS] L1: 0.012674, PSNR: 34.955098, SSIM: 0.974479, VIF: 1.006637, MSE: 0.000360
+
+## 修改预测T的并增加了dialtion_version_2
+
+### HazeRD训练，SOTS测试
+[SOTS] L1: 0.102853, PSNR: 17.769336, SSIM: 0.775961, VIF: 0.840989, MSE: 0.019193

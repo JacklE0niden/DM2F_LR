@@ -4,31 +4,93 @@ from torch import nn
 import matplotlib.pyplot as plt
 import time
 import os
+import numpy as np
 import torchvision.models as models
 from resnext import ResNeXt101
 
 
-def white_balance(image):
-    # TODO Implement white balance adjustment
-    return image
-def contrast_enhance(image):
-    # Implement contrast enhancement
-    return image
-def gamma_correction(image):
-    # Implement gamma correction
-    return image
+# def white_balance(image):
+#     # Compute the average R, G, and B values
+#     if isinstance(image, torch.Tensor):
+#         image = image.detach().cpu().numpy()
+#     avg_r = np.mean(image[:, :, 0])
+#     avg_g = np.mean(image[:, :, 1])
+#     avg_b = np.mean(image[:, :, 2])
 
-def preprocess_image(image):
-    # 白平衡
-    image_wb = white_balance(image)
-    
-    # 对比度增强
-    image_ce = contrast_enhance(image)
-    
-    # 伽马校正
-    image_gc = gamma_correction(image)
-    
-    return image_wb, image_ce, image_gc
+#     # Compute the average grayscale value
+#     avg_gray = (avg_r + avg_g + avg_b) / 3
+
+#     # Compute the scaling factors for each channel
+#     scale_r = avg_gray / avg_r
+#     scale_g = avg_gray / avg_g
+#     scale_b = avg_gray / avg_b
+
+#     # Apply the scaling factors to each channel
+#     balanced_image = np.zeros_like(image, dtype=np.float32)
+#     balanced_image[:, :, 0] = np.clip(image[:, :, 0] * scale_r, 0, 255)
+#     balanced_image[:, :, 1] = np.clip(image[:, :, 1] * scale_g, 0, 255)
+#     balanced_image[:, :, 2] = np.clip(image[:, :, 2] * scale_b, 0, 255)
+
+#     return balanced_image.astype(np.uint8)
+
+# def contrast_enhance(image):
+#     # Compute the mean and standard deviation of each channel
+#     if isinstance(image, torch.Tensor):
+#         image = image.detach().cpu().numpy()
+#     mean_r = np.mean(image[:, :, 0])
+#     mean_g = np.mean(image[:, :, 1])
+#     mean_b = np.mean(image[:, :, 2])
+#     std_r = np.std(image[:, :, 0])
+#     std_g = np.std(image[:, :, 1])
+#     std_b = np.std(image[:, :, 2])
+
+#     # Apply contrast enhancement using mean and standard deviation
+#     enhanced_image = np.zeros_like(image, dtype=np.float32)
+#     enhanced_image[:, :, 0] = np.clip((image[:, :, 0] - mean_r) * (128 / std_r) + 128, 0, 255)
+#     enhanced_image[:, :, 1] = np.clip((image[:, :, 1] - mean_g) * (128 / std_g) + 128, 0, 255)
+#     enhanced_image[:, :, 2] = np.clip((image[:, :, 2] - mean_b) * (128 / std_b) + 128, 0, 255)
+
+#     return enhanced_image.astype(np.uint8)
+
+# def gamma_correction(image, gamma=1.0):
+#     # Apply gamma correction to each channel
+#     if isinstance(image, torch.Tensor):
+#         image = image.detach().cpu().numpy()
+#     corrected_image = np.zeros_like(image, dtype=np.float32)
+#     corrected_image[:, :, 0] = np.clip(image[:, :, 0] ** gamma, 0, 255)
+#     corrected_image[:, :, 1] = np.clip(image[:, :, 1] ** gamma, 0, 255)
+#     corrected_image[:, :, 2] = np.clip(image[:, :, 2] ** gamma, 0, 255)
+
+#     return corrected_image.astype(np.uint8)
+
+# def preprocess_image(image):
+#     # Ensure image is in the correct format (HWC)
+#     if len(image.shape) == 4:  # Assume batch dimension
+#         images_wb = []
+#         images_ce = []
+#         images_gc = []
+#         for i in range(image.shape[0]):
+#             single_image = image[i]  # Take ith image from batch
+#             # print("single_image.shape:", single_image.shape)
+#             if len(single_image.shape) != 3 or single_image.shape[0] != 3:
+#                 raise ValueError("Invalid image format. Expected RGB image.")
+            
+#             # Preprocess each single image
+#             image_wb = white_balance(single_image)
+#             image_ce = contrast_enhance(single_image)
+#             image_gc = gamma_correction(single_image)
+
+#             # Append processed images to the list
+#             images_wb.append(image_wb)
+#             images_ce.append(image_ce)
+#             images_gc.append(image_gc)
+
+#         # Convert lists to arrays
+#         images_wb = np.array(images_wb)
+#         images_ce = np.array(images_ce)
+#         images_gc = np.array(images_gc)
+
+#     return images_wb, images_ce, images_gc
 
 
 
@@ -1543,21 +1605,6 @@ class Dense(nn.Module):  # 用来预测T的模块 （原有模块，直接在输
         dehaze = self.tanh(self.refine3(dehaze))
         # print("dehaze(t)_shape:" ,dehaze.shape)
 
-
-        # x2010 = self.upsample(self.relu(self.conv2010(x101)), size=shape_out)
-        # x2020 = self.upsample(self.relu(self.conv2020(x102)), size=shape_out)
-        # x2030 = self.upsample(self.relu(self.conv2030(x103)), size=shape_out)
-        # x2040 = self.upsample(self.relu(self.conv2040(x104)), size=shape_out)
-
-        # # 计算大气光值
-        # # x4:[16, 128, 16, 16]
-
-        # a = torch.cat((x2010, x2020, x2030, x2040, x9), 1)
-        # # print("a.shape:" ,a.shape)
-        # a = self.tanh(self.refine3(a))
-        # # print("a(a)_shape:" ,a.shape)
-
-
         return dehaze
 
 # class BottleneckBlock(nn.Module):
@@ -2013,7 +2060,7 @@ class MyModel(Base):
         )
         # ----end of same layers----
         # ----new layers----
-        self.pyramid_pooling = HorizontalPoolingPyramid()
+        # self.pyramid_pooling = HorizontalPoolingPyramid()
 
         # 定义高斯滤波器
         self.gaussian_filter = nn.Conv2d(3, 3, kernel_size=3, padding=1, bias=False)
@@ -2054,36 +2101,40 @@ class MyModel(Base):
                 m.inplace = True
 
 
+    # def forward(self, x0, x0_hd=None):
+    #     # 预处理图像
+    #     x0_wb, x0_ce, x0_gc = preprocess_image(x0)
+        
+    #     # 分别输入网络得到三个输出
+    #     output_wb, wbx_phy, wbx_j1, wbx_j2, wbx_j3, wbx_j4, wbt, wba = self.forward_single(x0_wb)
+    #     output_ce, cex_phy, cex_j1, cex_j2, cex_j3, cex_j4, cet, cea = self.forward_single(x0_ce)
+    #     output_gc, gcx_phy, gcx_j1, gcx_j2, gcx_j3, gcx_j4, gct, gca = self.forward_single(x0_gc)
+        
+    #     # 融合三个输出
+    #     output_fusion = self.fusion(output_wb, output_ce, output_gc)
+        
+    #     # if not self.training:
+    #     #     self.visualize(x0, output_fusion)
+        
+    #     if self.training:
+    #         x_phy = self.fusion(wbx_phy, cex_phy, gcx_phy)
+    #         x_j1 = self.fusion(wbx_j1, cex_j1, gcx_j1)
+    #         x_j2 = self.fusion(wbx_j2, cex_j2, gcx_j2)
+    #         x_j3 = self.fusion(wbx_j3, cex_j3, gcx_j3)
+    #         x_j4 = self.fusion(wbx_j4, cex_j4, gcx_j4)
+    #         t = self.fusion(wbt, cet, gct)
+    #         a = self.fusion(wba, cea, gca)
+
+    #         return output_fusion, x_phy, x_j1, x_j2, x_j3, x_j4, t, a
+    #     else:
+    #         return output_fusion
+
     def forward(self, x0, x0_hd=None):
-        # 预处理图像
-        x0_wb, x0_ce, x0_gc = preprocess_image(x0)
-        
-        # 分别输入网络得到三个输出
-        output_wb, wbx_phy, wbx_j1, wbx_j2, wbx_j3, wbx_j4, wbt, wba = self.forward_single(x0_wb)
-        output_ce, cex_phy, cex_j1, cex_j2, cex_j3, cex_j4, cet, cea = self.forward_single(x0_ce)
-        output_gc, gcx_phy, gcx_j1, gcx_j2, gcx_j3, gcx_j4, gct, gca = self.forward_single(x0_gc)
-        
-        # 融合三个输出
-        output_fusion = self.fusion(output_wb, output_ce, output_gc)
-        
-        if not self.training:
-            self.visualize(x0, output_fusion)
-        
-        if self.training:
-            x_phy = self.fusion(wbx_phy, cex_phy, gcx_phy)
-            x_j1 = self.fusion(wbx_j1, cex_j1, gcx_j1)
-            x_j2 = self.fusion(wbx_j2, cex_j2, gcx_j2)
-            x_j3 = self.fusion(wbx_j3, cex_j3, gcx_j3)
-            x_j4 = self.fusion(wbx_j4, cex_j4, gcx_j4)
-            t = self.fusion(wbt, cet, gct)
-            a = self.fusion(wba, cea, gca)
-
-            return output_fusion, x_phy, x_j1, x_j2, x_j3, x_j4, t, a
-        else:
-            return output_fusion
-
-    def forward_single(self, x0, x0_hd=None):
         # ----same layers----
+        #newly added
+        # x0 = torch.tensor(x0)
+        # x0 = x0.to('cuda')
+        # print("type:", type(x0))
         x = (x0 - self.mean) / self.std # [16, 3, 256, 256]
         # print("x.shape111:",x.shape)
         #TODO 能不能不直接用原图去预测t，用提取后的特征去预测t
@@ -2203,7 +2254,7 @@ class MyModel(Base):
         r3 = F.upsample(self.j3(f3), size=x0.size()[2:], mode='bilinear')
         x_j3 = torch.exp(-torch.exp(log_log_x0_inverse + r3)).clamp(min=0., max=1.)
         r4 = F.upsample(self.j4(f4), size=x0.size()[2:], mode='bilinear')
-        x_j4 = (torch.log(1 + torch.exp(log_x0 + r4))).clamp(min=0., max=1.)
+        x_j4 = (torch.log(1 + torch.exp(log_x0 + r4))).clamp(min=0., max=1.) # [16, 3, 256, 256]
         # print("x_j4.shape:", x_j4.shape)
 
         # newly added
@@ -2213,7 +2264,8 @@ class MyModel(Base):
         # print("x_j6.shape:", x_j6.shape)
 
         # concat.shape: torch.Size([16, 512, 64, 64])
-        # newly added fusion(dilated conv) 一个有用的模块
+        # newly added fusion(dilated conv) 
+        # 一个有用的模块
         fusion = self.dilated_conv(concat)
         fusion = self.attention_fusion(fusion)
         # print("fusion.shape:", fusion.shape)#[16, 15, 64, 64]
@@ -2239,8 +2291,8 @@ class MyModel(Base):
         x_fusion = torch.cat((x_f0, x_f1, x_f2), 1).clamp(min=0., max=1.)
         # ----same layers----
         
-        if not self.training:
-            self.visualize(x0, t)
+        # if not self.training:
+        #     self.visualize(x0, t)
 
         if self.training:
             return x_fusion, x_phy, x_j1, x_j2, x_j3, x_j4, t, a.view(x.size(0), -1)
