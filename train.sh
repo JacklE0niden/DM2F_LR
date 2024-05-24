@@ -5,3 +5,7 @@ source activate dm2f
 # python3 train_ohaze.py --gpus=0
 
 python3 train.py --gpus=1
+
+python3 train_ohaze_MyModel.py --gpus=0
+python3 train_MyModel.py --gpus=0
+python3 train_ohaze.py --gpus=0

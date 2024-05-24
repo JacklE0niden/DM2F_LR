@@ -11,23 +11,26 @@ from torch.backends import cudnn
 from torch.utils.data import DataLoader
 import torch.cuda.amp as amp
 
-from model import DM2FNet_woPhy
+from model import DM2FNet_woPhy_My
 from tools.config import OHAZE_ROOT
 from datasets import OHazeDataset
 from tools.utils import AvgMeter, check_mkdir, sliding_forward
+
+#newly added 
+from tools.change_image import rgb_to_lab, rgb_to_hsv
 
 from skimage.metrics import peak_signal_noise_ratio, structural_similarity
 
 #newly added 损失函数的扩展
 from loss import contrast_loss, tone_loss
-from loss import ColorConsistencyLoss, LaplacianFilter
-from loss import compute_multiscale_hf_lf_loss_lp, compute_multiscale_hf_lf_loss_dwt
+from loss import ColorConsistencyLoss, LaplacianFilter, DWT_transform
+from loss import compute_multiscale_hf_lf_loss_dwt, compute_multiscale_hf_lf_loss_lp
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a DM2FNet')
     parser.add_argument(
         '--gpus', type=str, default='0', help='gpus to use ')
-    parser.add_argument('--ckpt-path', default='.\\ckpt', help='checkpoint path')
+    parser.add_argument('--ckpt-path', default='.\ckpt', help='checkpoint path')
     parser.add_argument(
         '--exp-name',
         default='O-Haze',
@@ -53,7 +56,7 @@ cfgs = {
 
 
 def main():
-    net = DM2FNet_woPhy().cuda().train()
+    net = DM2FNet_woPhy_My().cuda().train()
     # net = DataParallel(net)
 
     optimizer = optim.Adam([
@@ -85,7 +88,9 @@ def main():
 
 def train(net, optimizer):
     curr_iter = cfgs['last_iter']
-
+    color_consistency_loss_fn = ColorConsistencyLoss(weight=1.0)  # 实例化 ColorConsistencyLoss
+    laplacian_filter = LaplacianFilter()  # 实例化 LaplacianFilter
+    dwt_transform = DWT_transform(in_channels=3, out_channels=64).to('cuda')
     scaler = amp.GradScaler()
     torch.cuda.empty_cache()
     while curr_iter <= cfgs['iter_num']:
@@ -93,8 +98,12 @@ def train(net, optimizer):
         loss_x_jf_record = AvgMeter()
         loss_x_j1_record, loss_x_j2_record = AvgMeter(), AvgMeter()
         loss_x_j3_record, loss_x_j4_record = AvgMeter(), AvgMeter()
-
         
+        # newly added 三种损失
+        color_loss_record = AvgMeter()
+        hf_lf_loss_record = AvgMeter()
+
+
         for data in train_loader:
             optimizer.param_groups[0]['lr'] = 2 * cfgs['lr'] * (1 - float(curr_iter) / cfgs['iter_num']) \
                                               ** cfgs['lr_decay']
@@ -118,10 +127,20 @@ def train(net, optimizer):
                 loss_x_j3 = criterion(x_j3, gt)
                 loss_x_j4 = criterion(x_j4, gt)
 
+                color_loss = color_consistency_loss_fn(x_jf, gt)
+                # 原始图片，在小波变换的高低频损失
+                lp_loss_rgb = 0.3 * compute_multiscale_hf_lf_loss_lp(gt, x_jf, criterion, laplacian_filter)
+                dwt_loss_rgb = 0.3 * compute_multiscale_hf_lf_loss_dwt(gt, x_jf, criterion, dwt_transform)  
+                
+                lp_loss_lab = 0.3 * compute_multiscale_hf_lf_loss_lp(gt, rgb_to_lab(x_jf), criterion, laplacian_filter)
+                dwt_loss_lab = 0.3 * compute_multiscale_hf_lf_loss_dwt(gt, rgb_to_lab(x_jf), criterion, dwt_transform)  
 
+                lp_loss_hsv = 0.3 * compute_multiscale_hf_lf_loss_lp(gt, rgb_to_hsv(x_jf), criterion, laplacian_filter)
+                dwt_loss_hsv = 0.3 * compute_multiscale_hf_lf_loss_dwt(gt, rgb_to_hsv(x_jf), criterion, dwt_transform)  
 
+                hf_lf_loss = lp_loss_rgb + dwt_loss_rgb + lp_loss_lab + dwt_loss_lab + lp_loss_hsv + dwt_loss_hsv
 
-                loss = loss_x_jf + loss_x_j1 + loss_x_j2 + loss_x_j3 + loss_x_j4
+                loss = loss_x_jf + loss_x_j1 + loss_x_j2 + loss_x_j3 + loss_x_j4 + color_loss + hf_lf_loss
 
             scaler.scale(loss).backward()
             scaler.step(optimizer)
@@ -137,13 +156,17 @@ def train(net, optimizer):
             loss_x_j2_record.update(loss_x_j2.item(), batch_size)
             loss_x_j3_record.update(loss_x_j3.item(), batch_size)
             loss_x_j4_record.update(loss_x_j4.item(), batch_size)
+            # newly added
+            color_loss_record.update(color_loss.item(), batch_size)
+            hf_lf_loss_record.update(hf_lf_loss.item(), batch_size)
 
             curr_iter += 1
 
             log = '[iter %d], [train loss %.5f], [loss_x_fusion %.5f], [loss_x_j1 %.5f], ' \
-                  '[loss_x_j2 %.5f], [loss_x_j3 %.5f], [loss_x_j4 %.5f], [lr %.13f]' % \
+                  '[loss_x_j2 %.5f], [loss_x_j3 %.5f], [loss_x_j4 %.5f], [color_loss %.5f], [hf_lf_loss %.5f], [lr %.13f]' % \
                   (curr_iter, train_loss_record.avg, loss_x_jf_record.avg,
                    loss_x_j1_record.avg, loss_x_j2_record.avg, loss_x_j3_record.avg, loss_x_j4_record.avg,
+                   color_loss_record.avg, hf_lf_loss_record.avg,
                    optimizer.param_groups[1]['lr'])
             print(log)
             open(log_path, 'a').write(log + '\n')

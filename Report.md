@@ -94,7 +94,7 @@ PSNR的值越高，表示图像的质量损失越小，失真程度越低。
 
 
 
-## 可视化1：ohaze测试集，不同训练集下效果对比
+## 可视化1：version0_ohaze测试集，不同训练集下效果对比
 从左至右分别为原始带雾图片，RESIDE数据集训练后测试，OHAZE数据集训练后测试，无雾图
 <img src='doc/img/ohaze_36_compare.png' height='250px'>
 
@@ -111,3 +111,14 @@ PSNR的值越高，表示图像的质量损失越小，失真程度越低。
 ## 增加了颜色损失函数和最大化对比度_version_4
 
 [SOTS] L1: 0.080793, PSNR: 20.157936, SSIM: 0.867605, VIF: 0.955109, MSE: 0.015375
+
+## 引入了高低频损失_version_6
+
+## 引入了GAN_version_7
+[SOTS] L1: 0.019571, PSNR: 31.257451, SSIM: 0.966829, VIF: 1.010530, MSE: 0.000840
+
+
+### 可视化2：version7
+在OHaze中，我们的算法1对于图像渲染错误颜色较少，但是在细节构建方面略显模糊，并且出现了网格的边界。于是我们引入了小波变换，去捕捉频域上的信息，
+<img src='doc/img/ohaze_40_compare_v7.png' height='250px'>
+<img src='doc/img/SOTS_1405_compare_v7.png' height='250px'>
