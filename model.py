@@ -8,8 +8,7 @@ import cv2
 import numpy as np
 import torchvision.models as models
 from resnext import ResNeXt101
-from resnext import ResNeXt101
-# from unet import UNet, RefinementNet
+
 # def white_balance(image):
 #     # Compute the average R, G, and B values
 #     if isinstance(image, torch.Tensor):
@@ -93,9 +92,9 @@ from resnext import ResNeXt101
 
 #     return images_wb, images_ce, images_gc
 
-class RefinementNet(nn.Module):
+class Refine(nn.Module):
     def __init__(self, in_channels=3, out_channels=3):
-        super(RefinementNet, self).__init__()
+        super(Refine, self).__init__()
         self.encoder = nn.Sequential(
             nn.Conv2d(in_channels, 64, kernel_size=3, stride=1, padding=1),
             nn.ReLU(inplace=True),
@@ -114,31 +113,6 @@ class RefinementNet(nn.Module):
         x = self.decoder(x)
         return x
 
-
-class HorizontalPoolingPyramid(): # 水平金字塔池化方法
-    """
-        Horizontal Pyramid Matching for Person Re-identification
-        Arxiv: https://arxiv.org/abs/1804.05275
-        Github: https://github.com/SHI-Labs/Horizontal-Pyramid-Matching
-    """
-
-    def __init__(self, bin_num=None):
-        if bin_num is None:
-            # bin_num = [16, 8, 4, 2, 1]
-            bin_num = [8, 4, 2, 1]
-        self.bin_num = bin_num
-    def __call__(self, x):
-        """
-            x  : [n, c, h, w]
-            ret: [n, c, p] 
-        """
-        n, c = x.size()[:2]
-        features = []
-        for b in self.bin_num:
-            z = x.view(n, c, b, -1) 
-            z = z.mean(-1) + z.max(-1)[0]
-            features.append(z)
-        return torch.cat(features, -1)
 
 class Base(nn.Module):
     def __init__(self):
@@ -991,6 +965,12 @@ class DM2FNet(Base):
             nn.Conv2d(num_features // 2, 15, kernel_size=1)
         )
 
+        # #newly added
+        # self.dilated_conv = nn.Sequential(
+        #     nn.Conv2d(512, 512, kernel_size=3, padding=2, dilation=2), nn.SELU(),
+        #     nn.Conv2d(512, 512, kernel_size=3, padding=2, dilation=2), nn.SELU()
+        # )
+
         for m in self.modules():
             if isinstance(m, nn.SELU) or isinstance(m, nn.ReLU):
                 m.inplace = True
@@ -1341,13 +1321,10 @@ class DM2FNet_woPhy(Base_OHAZE):
 # TODO 加入重采样
 # TODO 加入对于t的预测
 # TODO 加入后处理的网络
-class DM2FNet_woPhy_My(Base_OHAZE):
-    def __init__(self, use_refine=False, use_sep=False, use_final=False, num_features=64, arch='efficientnet_b0'):
+class DM2FNet_woPhy_My(Base_OHAZE):# TODO 加入膨胀卷积
+    def __init__(self, num_features=64, arch='efficientnet_b0'):
         super(DM2FNet_woPhy_My, self).__init__()
         self.num_features = num_features
-        self.use_refine = use_refine
-        self.use_sep = use_sep
-        self.use_final = use_final
         self.num_features = num_features
 
         # NOTE 修改了backbone结构
@@ -1383,17 +1360,16 @@ class DM2FNet_woPhy_My(Base_OHAZE):
         # print("backbone", self.backbone)
         # backbone ResNet
 
-        # NOTE 修改，加入了精细化网络，对于x_p0的图像模糊特征进行精细化提取
-        if self.use_refine:
-            self.refine_net = RefinementNet()
+        # NOTE 修改，加入了细节处理网络，对于x_p0的图像模糊特征进行细节提取
+        self.refine_net = Refine()
+    
+        # if self.use_sep:
+        #     self.refine_net1 = RefinementNet()
+        #     self.refine_net2 = RefinementNet()
+        #     self.refine_net3 = RefinementNet()
         
-        if self.use_sep:
-            self.refine_net1 = RefinementNet()
-            self.refine_net2 = RefinementNet()
-            self.refine_net3 = RefinementNet()
-        
-        if self.use_final:
-            self.refine_net_final = RefinementNet()
+        # if self.use_final:
+        #     self.refine_net_final = RefinementNet()
 
         self.down0 = nn.Sequential(
             nn.Conv2d(32, num_features, kernel_size=1), nn.SELU(),
@@ -1415,13 +1391,16 @@ class DM2FNet_woPhy_My(Base_OHAZE):
 
         # newly added 对down的降采样特征进行处理，新增了DWT小波变换
         # 初始化小波变换模块
-        self.dwt_transform0 = DWT_transform(in_channels=num_features, out_channels=num_features)
-        self.dwt_transform1 = DWT_transform(in_channels=num_features, out_channels=num_features)
-        self.dwt_transform2 = DWT_transform(in_channels=num_features, out_channels=num_features)
-        self.dwt_transform3 = DWT_transform(in_channels=num_features, out_channels=num_features)
-        self.dwt_transform4 = DWT_transform(in_channels=num_features, out_channels=num_features)
+        # self.dwt_transform0 = DWT_transform(in_channels=num_features, out_channels=num_features)
+        # self.dwt_transform1 = DWT_transform(in_channels=num_features, out_channels=num_features)
+        # self.dwt_transform2 = DWT_transform(in_channels=num_features, out_channels=num_features)
+        # self.dwt_transform3 = DWT_transform(in_channels=num_features, out_channels=num_features)
+        # self.dwt_transform4 = DWT_transform(in_channels=num_features, out_channels=num_features)
 
-
+        self.dilated_conv = nn.Sequential(
+            nn.Conv2d(64, 512, kernel_size=3, padding=2, dilation=2), nn.SELU(),
+            nn.Conv2d(512, 64, kernel_size=3, padding=2, dilation=2), nn.SELU()
+        )
 
 
         self.fuse3 = nn.Sequential(
@@ -1567,38 +1546,31 @@ class DM2FNet_woPhy_My(Base_OHAZE):
         log_log_x0_inverse = torch.log(torch.log(1 / x0.clamp(min=1e-8, max=(1 - 1e-8))))
 
         x_p0 = torch.exp(log_x0 + F.upsample(self.p0(f), size=x0.size()[2:], mode='bilinear')).clamp(min=0, max=1)
-        if self.use_refine:
-            x_p0 = self.refine_net(x_p0, x)
+
+        x_p0 = self.refine_net(x_p0)
 
         x_p1 = ((x + F.upsample(self.p1(f), size=x0.size()[2:], mode='bilinear')) * self.std_out + self.mean_out)\
             .clamp(min=0., max=1.)
-        if self.use_refine:
-            if self.use_sep:
-                x_p1 = self.refine_net1(x_p1, x)
-            else:
-                x_p1 = self.refine_net(x_p1, x)
+
+        x_p1 = self.refine_net(x_p1)
 
         log_x_p2_0 = torch.log(
             ((x + F.upsample(self.p2_0(f), size=x0.size()[2:], mode='bilinear')) * self.std_out + self.mean_out)
                 .clamp(min=1e-8))
         x_p2 = torch.exp(log_x_p2_0 + F.upsample(self.p2_1(f), size=x0.size()[2:], mode='bilinear'))\
             .clamp(min=0., max=1.)
-        if self.use_refine:
-            if self.use_sep:
-                x_p2 = self.refine_net2(x_p2, x)
-            else:
-                x_p2 = self.refine_net(x_p2, x)
+        
+        x_p2 = self.refine_net(x_p2)
 
         log_x_p3_0 = torch.exp(log_log_x0_inverse + F.upsample(self.p3_0(f), size=x0.size()[2:], mode='bilinear'))
         x_p3 = torch.exp(-log_x_p3_0 + F.upsample(self.p3_1(f), size=x0.size()[2:], mode='bilinear')).clamp(min=0,
                                                                                                             max=1)
-        if self.use_refine:
-            if self.use_sep:
-                x_p3 = self.refine_net3(x_p3, x)
-            else:
-                x_p3 = self.refine_net(x_p3, x)
+
+        x_p3 = self.refine_net(x_p3)
         # 计算模糊图像的雾层
-    
+
+        f = self.dilated_conv(f)
+
         attention_fusion = F.upsample(self.attentional_fusion(f), size=x0.size()[2:], mode='bilinear')
         x_fusion = torch.cat((torch.sum(F.softmax(attention_fusion[:, : 4, :, :], 1) * torch.stack(
             (x_p0[:, 0, :, :], x_p1[:, 0, :, :], x_p2[:, 0, :, :], x_p3[:, 0, :, :]), 1), 1, True),
@@ -1905,11 +1877,10 @@ def clahe_contrast_enhancement(image_tensor, clip_limit=1.0, grid_size=(8, 8)):
 # 5.加入了生成对抗网络（判别器是一个VGG提取特征和一个分类头）
 # 6.加入小波变换的多尺度损失
 # 7.加入像素、通道注意力机制 似乎效果还可以
-# TODO 增加用来预测t的模块
-# TODO 增加一个感知损失（对于t或者对于a）
-# TODO 加入膨胀卷积
-# TODO 加入重采样处理
+# 8.加入膨胀卷积
+# TODO 增加局部判别器模块
 # TODO 加入对比度增强
+# TODO 做消融实验
 class MyModel(Base):
     def __init__(self, num_features=128, arch='efficientnet_b0'):
         super(MyModel, self).__init__()
@@ -2065,11 +2036,7 @@ class MyModel(Base):
         #                                         for _ in range(4)])
         # Define refinement layers
 
-        self.refine_net = RefinementNet()
-        # self.refine_net1 = RefinementNet()
-        # self.refine_net2 = RefinementNet()
-        # self.refine_net3 = RefinementNet()
-        # self.refine_net4 = RefinementNet()
+        self.refine_net = Refine()
 
         self.dilated_conv = nn.Sequential(
             nn.Conv2d(512, 512, kernel_size=3, padding=2, dilation=2), nn.SELU(),

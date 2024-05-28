@@ -10,7 +10,7 @@ from torch import optim
 from torch.backends import cudnn
 from torch.utils.data import DataLoader
 import torch.cuda.amp as amp
-
+from torchsummary import summary
 from model import DM2FNet_woPhy_My
 from tools.config import OHAZE_ROOT
 from datasets import OHazeDataset
@@ -30,7 +30,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Train a DM2FNet')
     parser.add_argument(
         '--gpus', type=str, default='0', help='gpus to use ')
-    parser.add_argument('--ckpt-path', default='.\ckpt', help='checkpoint path')
+    parser.add_argument('--ckpt-path', default='ckpt', help='checkpoint path')
     parser.add_argument(
         '--exp-name',
         default='O-Haze',
@@ -42,8 +42,8 @@ def parse_args():
 # 配置信息
 cfgs = {
     'use_physical': True,
-    'iter_num': 20000,
-    'train_batch_size': 16,
+    'iter_num': 40000,
+    'train_batch_size': 8,
     'last_iter': 0,
     'lr': 2e-4,
     'lr_decay': 0.9,
@@ -58,6 +58,11 @@ cfgs = {
 def main():
     net = DM2FNet_woPhy_My().cuda().train()
     # net = DataParallel(net)
+
+    # 列出参数名称、形状和总参数量
+    summary(net, input_size=(3, 256, 256))  
+
+
 
     optimizer = optim.Adam([
         {'params': [param for name, param in net.named_parameters()

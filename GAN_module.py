@@ -7,7 +7,7 @@ import torch.nn.functional as F
 import torchvision.models as models
 # 这个判别器会爆显存
 # class Discriminator(nn.Module):
-#     def __init__(self, input_nc, ndf, norm_layer, use_sigmoid,):
+#     def __init__(self, norm_layer, use_sigmoid, input_nc, ndf):
 #         super(Discriminator, self).__init__()
 #         self.net = nn.Sequential(
 #             nn.Conv2d(input_nc, ndf, kernel_size=3, padding=1),
@@ -55,7 +55,38 @@ import torchvision.models as models
 #         else:
 #             return self.net(x).view(batch_size)
     
+import random
 
+class ImagePool():
+    def __init__(self, pool_size):
+        self.pool_size = pool_size
+        if self.pool_size > 0:
+            self.num_imgs = 0
+            self.images = []
+
+    def query(self, images):
+        if self.pool_size == 0:
+            return images
+        return_images = []
+        for image in images.data:
+            image = torch.unsqueeze(image, 0)
+            if self.num_imgs < self.pool_size:
+                self.num_imgs = self.num_imgs + 1
+                self.images.append(image)
+                return_images.append(image)
+            else:
+                p = random.uniform(0, 1)
+                if p > 0.5:
+                    random_id = random.randint(0, self.pool_size-1)
+                    tmp = self.images[random_id].clone()
+                    self.images[random_id] = image
+                    return_images.append(tmp)
+                else:
+                    return_images.append(image)
+        return_images = Variable(torch.cat(return_images, 0))
+        return return_images
+    
+    
 class Discriminator(nn.Module):
     def __init__(self, use_sigmoid=True):
         super(Discriminator, self).__init__()
@@ -156,4 +187,3 @@ class GANLoss(nn.Module):
         else:
             target_tensor = self.get_target_tensor(input[-1], target_is_real).to(self.device)
             return self.loss(input[-1], target_tensor)
-

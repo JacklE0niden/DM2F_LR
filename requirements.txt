@@ -8,4 +8,4 @@ tqdm>=4.62.2
 pyrtools>=1.0.4
 colormath>=3.0.0
 opencv-python>=4.9
-# unet>=0.7
+torchsummary>=1.5.1

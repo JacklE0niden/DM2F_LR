@@ -151,3 +151,162 @@ def compute_multiscale_hf_lf_loss_lp(ground_truth, predicted_output, loss_functi
     
     # 返回平均损失
     return total_loss / len(scales)
+
+
+
+
+def ciede2000_color_diff(gt, r, KLCH=None):
+    """
+    Computes the CIEDE2000 color difference between two RGB color images.
+
+    Parameters:
+    rgbstd : ndarray
+        Standard RGB image.
+    rgbsample : ndarray
+        Sample RGB image.
+    KLCH : tuple, optional
+        Parameters for adjusting lightness, chroma, and hue.
+
+    Returns:
+    dE00 : float
+        The CIEDE2000 color difference between the two images.
+    """
+    # Convert RGB images to Lab color space
+    labstd = cv2.cvtColor(gt, cv2.COLOR_BGR2Lab)
+    labsample = cv2.cvtColor(r, cv2.COLOR_BGR2Lab)
+    
+    # Compute Lab color difference
+    dE00 = compute_ciede2000(labstd, labsample, KLCH)
+    
+    return dE00
+
+def compute_ciede2000(Labstd, Labsample, KLCH=None):
+    """
+    Compute the CIEDE2000 color difference between two Lab color images.
+
+    Parameters:
+    Labstd : ndarray
+        Standard Lab color image.
+    Labsample : ndarray
+        Sample Lab color image.
+    KLCH : tuple, optional
+        Parameters for adjusting lightness, chroma, and hue.
+
+    Returns:
+    dE00 : float
+        The CIEDE2000 color difference between the two images.
+    """
+    h = Labstd.shape[0]
+    w = Labstd.shape[1]
+    c = Labstd.shape[2]
+    
+    Labstd = Labstd.reshape(h*w, c)
+    Labsample = Labsample.reshape(h*w, c)
+    
+    # Ensure inputs are numpy arrays
+    Labstd = np.array(Labstd)
+    Labsample = np.array(Labsample)
+    
+    # Check input dimensions
+    if Labstd.shape != Labsample.shape:
+        raise ValueError('Standard and Sample sizes do not match')
+    if Labstd.shape[1] != 3:
+        print("Labstd.shape:", Labstd.shape)
+        raise ValueError('Standard and Sample Lab vectors should be Kx3 vectors')
+    
+    # Set default parametric factors if not provided
+    if KLCH is None:
+        kl, kc, kh = 1, 1, 1
+    else:
+        if len(KLCH) != 3:
+            raise ValueError('KLCH must be a 1x3 vector')
+        kl, kc, kh = KLCH
+    
+    # Extract Lab channels
+    Lstd, astd, bstd = Labstd[:, 0], Labstd[:, 1], Labstd[:, 2]
+    Lsample, asample, bsample = Labsample[:, 0], Labsample[:, 1], Labsample[:, 2]
+    
+    # Compute color differences
+    dE00 = compute_delta_e(Lstd, astd, bstd, Lsample, asample, bsample, kl, kc, kh)
+    
+    return dE00
+
+def compute_delta_e(Lstd, astd, bstd, Lsample, asample, bsample, kl, kc, kh):
+    """
+    Compute the CIEDE2000 color difference between two sets of Lab color values.
+
+    Parameters:
+    Lstd, astd, bstd : array_like
+        Standard Lab color values.
+    Lsample, asample, bsample : array_like
+        Sample Lab color values.
+    kl, kc, kh : float
+        Parameters for adjusting lightness, chroma, and hue.
+
+    Returns:
+    dE00 : float
+        The CIEDE2000 color difference between the two Lab colors.
+    """
+    # Convert Lab values to numpy arrays
+    # Lstd_arr, astd_arr, bstd_arr = np.array(Lstd), np.array(astd), np.array(bstd)
+    # Lsample_arr, asample_arr, bsample_arr = np.array(Lsample), np.array(asample), np.array(bsample)
+    
+    # # Calculate color differences
+    # dL = Lsample_arr - Lstd_arr
+    # da = asample_arr - astd_arr
+    # db = bsample_arr - bstd_arr
+    
+    # Calculate intermediate parameters
+    C1 = np.sqrt(astd**2 + bstd**2)
+    C2 = np.sqrt(asample**2 + bsample**2)
+    Cabarithmean = (C1 + C2) / 2
+    
+    G = 0.5 * (1 - np.sqrt((Cabarithmean**7) / (Cabarithmean**7 + 25**7)))
+    
+    apstd = (1 + G) * astd
+    apsample = (1 + G) * asample
+    Cpstd = np.sqrt(apstd**2 + bstd**2)
+    Cpsample = np.sqrt(apsample**2 + bsample**2)
+    
+    Cpprod = Cpsample * Cpstd
+    zcidx = np.where(Cpprod == 0)[0]
+    
+    hpstd = np.arctan2(bstd, apstd)
+    hpstd = np.mod(hpstd + 2 * np.pi * (hpstd < 0), 2 * np.pi)
+    hpstd[(np.abs(apstd) + np.abs(bstd)) == 0] = 0
+    
+    hpsample = np.arctan2(bsample, apsample)
+    hpsample = np.mod(hpsample + 2 * np.pi * (hpsample < 0), 2 * np.pi)
+    hpsample[(np.abs(apsample) + np.abs(bsample)) == 0] = 0
+    
+    dL = Lsample - Lstd
+    dC = Cpsample - Cpstd
+    
+    dhp = hpsample - hpstd
+    dhp[dhp > np.pi] -= 2 * np.pi
+    dhp[dhp < -np.pi] += 2 * np.pi
+    dhp[zcidx] = 0
+    
+    ΔH_ = 2 * np.sqrt(Cpprod) * np.sin(dhp / 2)
+    ΔH__bar = np.abs(hpstd - hpsample)
+    ΔH__bar[np.abs(hpstd - hpsample) > np.pi] -= 2 * np.pi
+    ΔH__bar = np.abs(ΔH__bar)
+    
+    Lp = (Lsample + Lstd) / 2
+    Cp = (Cpstd + Cpsample) / 2
+    
+    hp = (hpstd + hpsample) / 2
+    hp[ΔH__bar > np.pi] -= np.pi
+    
+    T = 1 - 0.17 * np.cos(hp - np.pi / 6) + 0.24 * np.cos(2 * hp) + 0.32 * np.cos(3 * hp + np.pi / 30) - 0.2 * np.cos(4 * hp - 63 * np.pi / 180)
+    Sl = 1 + 0.015 * (Lp - 50)**2 / np.sqrt(20 + (Lp - 50)**2)
+    Sc = 1 + 0.045 * Cp
+    Sh = 1 + 0.015 * Cp * T
+    
+    delthetarad = (30 * np.pi / 180) * np.exp(-((180 / np.pi * hp - 275) / 25)**2)
+    Rc = 2 * np.sqrt((Cp**7) / (Cp**7 + 25**7))
+    RT = -np.sin(2 * delthetarad) * Rc
+    
+    dE00 = np.sqrt((dL / (kl * Sl))**2 + (dC / (kc * Sc))**2 + (ΔH_ / (kh * Sh))**2 + RT * (dC / (kc * Sc)) * (ΔH_ / (kh * Sh)))
+    
+    return dE00

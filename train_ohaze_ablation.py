@@ -1,4 +1,8 @@
 # coding: utf-8
+'''
+消融实验，消掉了那几个损失函数
+'''
+
 import argparse
 import os
 import datetime
@@ -11,7 +15,7 @@ from torch.backends import cudnn
 from torch.utils.data import DataLoader
 import torch.cuda.amp as amp
 
-from model import DM2FNet_woPhy
+from model import DM2FNet_woPhy, DM2FNet_woPhy_My
 from tools.config import OHAZE_ROOT
 from datasets import OHazeDataset
 from tools.utils import AvgMeter, check_mkdir, sliding_forward
@@ -40,7 +44,7 @@ def parse_args():
 cfgs = {
     'use_physical': True,
     'iter_num': 20000,
-    'train_batch_size': 16,
+    'train_batch_size': 4,
     'last_iter': 0,
     'lr': 2e-4,
     'lr_decay': 0.9,
@@ -53,7 +57,7 @@ cfgs = {
 
 
 def main():
-    net = DM2FNet_woPhy().cuda().train()
+    net = DM2FNet_woPhy_My().cuda().train()
     # net = DataParallel(net)
 
     optimizer = optim.Adam([

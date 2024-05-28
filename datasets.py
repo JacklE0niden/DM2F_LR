@@ -341,6 +341,22 @@ class HazeRDDataset(data.Dataset):
     def __len__(self):
         return len(self.imgs)
 
+class HazyImagesDataset(data.Dataset):
+    def __init__(self, root):
+        self.root = root
+        self.image_files = [f for f in os.listdir(root) if f.endswith('.jpg')]
+        self.transform = transforms.Compose([
+            transforms.ToTensor(),
+        ])
+
+    def __len__(self):
+        return len(self.image_files)
+
+    def __getitem__(self, idx):
+        img_path = os.path.join(self.root, self.image_files[idx])
+        image = Image.open(img_path).convert('RGB')
+        image = self.transform(image)
+        return image, self.image_files[idx]
 
 
 

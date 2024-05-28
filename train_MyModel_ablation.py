@@ -22,7 +22,7 @@ from skimage.metrics import peak_signal_noise_ratio, structural_similarity
 from loss import contrast_loss, tone_loss
 from loss import ColorConsistencyLoss, LaplacianFilter, DWT_transform
 from loss import compute_multiscale_hf_lf_loss_dwt, compute_multiscale_hf_lf_loss_lp
-from GAN_module import D, GANLoss,Discriminator, ImagePool
+# from GAN_module import D, GANLoss,Discriminator, ImagePool
 
 
 def parse_args():
@@ -41,8 +41,8 @@ def parse_args():
 
 cfgs = {
     'use_physical': True,
-    'iter_num': 80000,
-    'train_batch_size': 8,
+    'iter_num': 40000,
+    'train_batch_size': 16,
     'last_iter': 0,
     'lr': 5e-4,
     'lr_D': 5e-4,
@@ -59,14 +59,14 @@ cfgs = {
 
 def main():
     # net = DM2FNet().cuda().train()
-    netDiscriminator = D().cuda().train()
+    # netDiscriminator = D().cuda().train()
     net = MyModel().cuda().train()
     # net = nn.DataParallel(net)
     summary(net, input_size=(3, 256, 256))
-    summary(netDiscriminator, input_size=(3, 256, 256))
+    # summary(netDiscriminator, input_size=(3, 256, 256))
 
-    params = list(netDiscriminator.parameters())
-    optimizer_Discriminator = torch.optim.Adam(params, lr=cfgs['lr_D'], betas=(0.95, 0.999))
+    # params = list(netDiscriminator.parameters())
+    # optimizer_Discriminator = tor ch.optim.Adam(params, lr=cfgs['lr_D'], betas=(0.95, 0.999))
 
     optimizer = optim.Adam([
         {'params': [param for name, param in net.named_parameters()
@@ -90,9 +90,9 @@ def main():
     check_mkdir(os.path.join(args.ckpt_path, args.exp_name))
     open(log_path, 'w').write(str(cfgs) + '\n\n')
 
-    train(net, netDiscriminator, optimizer, optimizer_Discriminator)
+    train(net, optimizer)
 
-def train(net, netDiscriminator, optimizer, optimizer_Discriminator):
+def train(net, optimizer):
     curr_iter = cfgs['last_iter']
     # color_consistency_loss_fn = ColorConsistencyLoss(weight=1.0)  # 实例化 ColorConsistencyLoss
     laplacian_filter = LaplacianFilter()  # 实例化拉普拉斯算子
@@ -105,8 +105,8 @@ def train(net, netDiscriminator, optimizer, optimizer_Discriminator):
         loss_x_j3_record, loss_x_j4_record = AvgMeter(), AvgMeter()
         loss_t_record, loss_a_record = AvgMeter(), AvgMeter()
         # loss_color_record = AvgMeter()
-        loss_GAN_record = AvgMeter()
-        loss_D_record = AvgMeter()
+        # loss_GAN_record = AvgMeter()
+        # loss_D_record = AvgMeter()
 
         hf_lf_loss_record = AvgMeter()
 
@@ -124,27 +124,27 @@ def train(net, netDiscriminator, optimizer, optimizer_Discriminator):
             # Forward pass through the network
             x_jf, x_j0, x_j1, x_j2, x_j3, x_j4, t, a = net(haze)
 
-            criterionGAN = GANLoss(device=haze.device)
-            fake_pool = ImagePool(pool_size=0)
+            # criterionGAN = GANLoss(device=haze.device)
+            # fake_pool = ImagePool(pool_size=0)
 
-            # Discriminator loss for fake samples
-            loss_D_fake = 0
-            for x_j in [x_jf, x_j0, x_j1, x_j2, x_j3, x_j4]:
-                fake_query = fake_pool.query(x_j.detach())
-                pred_fake_pool = netDiscriminator.forward(fake_query)
-                loss_D_fake += criterionGAN(pred_fake_pool, False)
+            # # Discriminator loss for fake samples
+            # loss_D_fake = 0
+            # for x_j in [x_jf, x_j0, x_j1, x_j2, x_j3, x_j4]:
+            #     fake_query = fake_pool.query(x_j.detach())
+            #     pred_fake_pool = netDiscriminator.forward(fake_query)
+            #     loss_D_fake += criterionGAN(pred_fake_pool, False)
 
-            # Discriminator loss for real samples
-            pred_real = netDiscriminator.forward(gt.detach())
-            loss_D_real = criterionGAN(pred_real, True)
+            # # Discriminator loss for real samples
+            # pred_real = netDiscriminator.forward(gt.detach())
+            # loss_D_real = criterionGAN(pred_real, True)
             
-            # Total discriminator loss
-            loss_D = (loss_D_fake + loss_D_real * 6) / 12
+            # # Total discriminator loss
+            # loss_D = (loss_D_fake + loss_D_real * 6) / 12
 
             # Update discriminator parameters
-            optimizer_Discriminator.zero_grad()
-            loss_D.backward()
-            optimizer_Discriminator.step()
+            # optimizer_Discriminator.zero_grad()
+            # loss_D.backward()
+            # optimizer_Discriminator.step()
 
             # Compute various losses
             loss_x_jf = criterion(x_jf, gt)
@@ -174,17 +174,17 @@ def train(net, netDiscriminator, optimizer, optimizer_Discriminator):
                     10 * loss_t + loss_a + hf_lf_loss)
             
             # Generator adversarial loss
-            loss_G_GAN = 0
-            for x_j in [x_jf, x_j0, x_j1, x_j2, x_j3, x_j4]:
-                pred_fake = netDiscriminator(x_j)
-                loss_G_GAN += criterionGAN(pred_fake, True)
-            loss_G_GAN /= 6
+            # loss_G_GAN = 0
+            # for x_j in [x_jf, x_j0, x_j1, x_j2, x_j3, x_j4]:
+            #     pred_fake = netDiscriminator(x_j)
+            #     loss_G_GAN += criterionGAN(pred_fake, True)
+            # loss_G_GAN /= 6
             # 
             # for p in netDiscriminator.parameters():
             #     p.requires_grad=False
             
             optimizer.zero_grad()
-            loss_G_GAN.backward(retain_graph=True)
+            # loss_G_GAN.backward(retain_graph=True)
 
             loss.backward()
 
@@ -193,8 +193,8 @@ def train(net, netDiscriminator, optimizer, optimizer_Discriminator):
             # update recorder
             train_loss_record.update(loss.item(), batch_size)
             #newly added GAN损失
-            loss_D_record.update(loss_D.item(), batch_size)
-            loss_GAN_record.update(loss_G_GAN.item(), batch_size)
+            # loss_D_record.update(loss_D.item(), batch_size)
+            # loss_GAN_record.update(loss_G_GAN.item(), batch_size)
 
             loss_x_jf_record.update(loss_x_jf.item(), batch_size)
             loss_x_j0_record.update(loss_x_j0.item(), batch_size)
@@ -213,12 +213,12 @@ def train(net, netDiscriminator, optimizer, optimizer_Discriminator):
             
             log = '[iter %d], [train loss %.5f], [loss_x_fusion %.5f], [loss_x_phy %.5f], [loss_x_j1 %.5f], ' \
                 '[loss_x_j2 %.5f], [loss_x_j3 %.5f], [loss_x_j4 %.5f],[loss_t %.5f], [loss_a %.5f], ' \
-                '[loss_D %.5f], [loss_GAN %.5f],[hf_lf_loss %.5f],' \
+                '[hf_lf_loss %.5f],' \
                 '[lr %.13f]' % \
                 (curr_iter, train_loss_record.avg, loss_x_jf_record.avg, loss_x_j0_record.avg,
                  loss_x_j1_record.avg, loss_x_j2_record.avg, loss_x_j3_record.avg, loss_x_j4_record.avg, 
                  loss_t_record.avg, loss_a_record.avg,
-                 loss_D_record.avg, loss_GAN_record.avg, hf_lf_loss_record.avg,
+                 hf_lf_loss_record.avg,
                  optimizer.param_groups[1]['lr'])
             print(log)
             open(log_path, 'a').write(log + '\n')

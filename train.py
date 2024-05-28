@@ -18,18 +18,18 @@ from tools.utils import AvgMeter, check_mkdir, sliding_forward
 from skimage.metrics import peak_signal_noise_ratio, structural_similarity
 
 #newly added tensorboard可视化
-from torch.utils.tensorboard import SummaryWriter
+# from torch.utils.tensorboard import SummaryWriter
 
-#newly added 损失函数的扩展
-from loss import contrast_loss, tone_loss
-from loss import ColorConsistencyLoss, LaplacianFilter
-from loss import compute_multiscale_hf_lf_loss_lp, compute_multiscale_hf_lf_loss_dwt
+# #newly added 损失函数的扩展
+# from loss import contrast_loss, tone_loss
+# from loss import ColorConsistencyLoss, LaplacianFilter
+# from loss import compute_multiscale_hf_lf_loss_lp, compute_multiscale_hf_lf_loss_dwt
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a DM2FNet')
     parser.add_argument(
         '--gpus', type=str, default='0', help='gpus to use ')
-    parser.add_argument('--ckpt-path', default='./ckpt', help='checkpoint path')
+    parser.add_argument('--ckpt-path', default='ckpt', help='checkpoint path')
     parser.add_argument(
         '--exp-name',
         default='RESIDE_ITS',
@@ -41,7 +41,7 @@ def parse_args():
 
 cfgs = {
     'use_physical': True,
-    'iter_num': 40000,
+    'iter_num': 15000,
     'train_batch_size': 16,
     'last_iter': 0,
     'lr': 5e-4,
@@ -49,7 +49,7 @@ cfgs = {
     'lr_decay': 0.9,
     'weight_decay': 0,
     'momentum': 0.9,
-    'snapshot': '',
+    'snapshot': 'iter_25000_loss_0.01463_lr_0.000207',
     'val_freq': 5000,
     # 'val_freq': 3,
     'crop_size': 256
@@ -57,8 +57,8 @@ cfgs = {
 
 
 def main():
-    # net = DM2FNet().cuda().train()
-    net = MyModel().cuda().train()
+    net = DM2FNet().cuda().train()
+    # net = MyModel().cuda().train()
     # net = nn.DataParallel(net)
 
     optimizer = optim.Adam([
@@ -88,11 +88,9 @@ def main():
 
 def train(net, optimizer):
     curr_iter = cfgs['last_iter']
-    color_consistency_loss_fn = ColorConsistencyLoss(weight=1.0)  # 实例化 ColorConsistencyLoss
-    laplacian_filter = LaplacianFilter()  # 实例化 LaplacianFilter
     
     # 初始化 TensorBoard 日志记录器
-    writer = SummaryWriter(log_dir='logs')
+    # writer = SummaryWriter(log_dir='logs')
 
     while curr_iter <= cfgs['iter_num']:
         train_loss_record = AvgMeter()
@@ -100,8 +98,8 @@ def train(net, optimizer):
         loss_x_j1_record, loss_x_j2_record = AvgMeter(), AvgMeter()
         loss_x_j3_record, loss_x_j4_record = AvgMeter(), AvgMeter()
         loss_t_record, loss_a_record = AvgMeter(), AvgMeter()
-        color_loss_record = AvgMeter()
-        hf_lf_loss_record = AvgMeter()
+        # color_loss_record = AvgMeter()
+        # hf_lf_loss_record = AvgMeter()
 
         for data in train_loader:
             optimizer.param_groups[0]['lr'] = 2 * cfgs['lr'] * (1 - float(curr_iter) / cfgs['iter_num']) ** cfgs['lr_decay']
@@ -129,11 +127,11 @@ def train(net, optimizer):
             loss_t = criterion(t, gt_trans_map)
             loss_a = criterion(a, gt_ato)
 
-            color_loss = color_consistency_loss_fn(x_jf, gt)
-            hf_lf_loss = 0.3 * compute_multiscale_hf_lf_loss_lp(gt, haze, x_jf, criterion, laplacian_filter)
+            # color_loss = color_consistency_loss_fn(x_jf, gt)
+            # hf_lf_loss = 0.3 * compute_multiscale_hf_lf_loss_lp(gt, haze, x_jf, criterion, laplacian_filter)
 
             loss = (loss_x_jf + loss_x_j0 + loss_x_j1 + loss_x_j2 + loss_x_j3 + loss_x_j4 +
-                    10 * loss_t + loss_a + color_loss + hf_lf_loss)
+                    10 * loss_t + loss_a)
             loss.backward()
 
             optimizer.step()
@@ -147,31 +145,29 @@ def train(net, optimizer):
             loss_x_j3_record.update(loss_x_j3.item(), batch_size)
             loss_x_j4_record.update(loss_x_j4.item(), batch_size)
             loss_t_record.update(loss_t.item(), batch_size)
-            color_loss_record.update(color_loss.item(), batch_size)
-            hf_lf_loss_record.update(hf_lf_loss.item(), batch_size)
             loss_a_record.update(loss_a.item(), batch_size)
 
             curr_iter += 1
 
             # 记录到 TensorBoard
-            writer.add_scalar('Train/Total_Loss', train_loss_record.avg, curr_iter)
-            writer.add_scalar('Train/Loss_X_JF', loss_x_jf_record.avg, curr_iter)
-            writer.add_scalar('Train/Loss_X_J0', loss_x_j0_record.avg, curr_iter)
-            writer.add_scalar('Train/Loss_X_J1', loss_x_j1_record.avg, curr_iter)
-            writer.add_scalar('Train/Loss_X_J2', loss_x_j2_record.avg, curr_iter)
-            writer.add_scalar('Train/Loss_X_J3', loss_x_j3_record.avg, curr_iter)
-            writer.add_scalar('Train/Loss_X_J4', loss_x_j4_record.avg, curr_iter)
-            writer.add_scalar('Train/Loss_T', loss_t_record.avg, curr_iter)
-            writer.add_scalar('Train/Color_Loss', color_loss_record.avg, curr_iter)
-            writer.add_scalar('Train/HF_LF_Loss', hf_lf_loss_record.avg, curr_iter)
-            writer.add_scalar('Train/Loss_A', loss_a_record.avg, curr_iter)
+            # writer.add_scalar('Train/Total_Loss', train_loss_record.avg, curr_iter)
+            # writer.add_scalar('Train/Loss_X_JF', loss_x_jf_record.avg, curr_iter)
+            # writer.add_scalar('Train/Loss_X_J0', loss_x_j0_record.avg, curr_iter)
+            # writer.add_scalar('Train/Loss_X_J1', loss_x_j1_record.avg, curr_iter)
+            # writer.add_scalar('Train/Loss_X_J2', loss_x_j2_record.avg, curr_iter)
+            # writer.add_scalar('Train/Loss_X_J3', loss_x_j3_record.avg, curr_iter)
+            # writer.add_scalar('Train/Loss_X_J4', loss_x_j4_record.avg, curr_iter)
+            # writer.add_scalar('Train/Loss_T', loss_t_record.avg, curr_iter)
+            # writer.add_scalar('Train/Color_Loss', color_loss_record.avg, curr_iter)
+            # writer.add_scalar('Train/HF_LF_Loss', hf_lf_loss_record.avg, curr_iter)
+            # writer.add_scalar('Train/Loss_A', loss_a_record.avg, curr_iter)
 
             log = ('[iter %d], [train loss %.5f], [loss_x_fusion %.5f], [loss_x_phy %.5f], [loss_x_j1 %.5f], '
-                   '[loss_x_j2 %.5f], [loss_x_j3 %.5f], [loss_x_j4 %.5f], [color_loss %.5f], [hf_lf_loss %.5f], '
+                   '[loss_x_j2 %.5f], [loss_x_j3 %.5f], [loss_x_j4 %.5f],'
                    '[loss_t %.5f], [loss_a %.5f], [lr %.13f]' % 
                    (curr_iter, train_loss_record.avg, loss_x_jf_record.avg, loss_x_j0_record.avg, 
                     loss_x_j1_record.avg, loss_x_j2_record.avg, loss_x_j3_record.avg, loss_x_j4_record.avg,
-                    color_loss_record.avg, hf_lf_loss_record.avg, loss_t_record.avg, loss_a_record.avg, optimizer.param_groups[1]['lr']))
+                    loss_t_record.avg, loss_a_record.avg, optimizer.param_groups[1]['lr']))
             print(log)
             open(log_path, 'a').write(log + '\n')
 
@@ -182,7 +178,7 @@ def train(net, optimizer):
                 break
 
     # 关闭 TensorBoard 日志记录器
-    writer.close()
+    # writer.close()
 
 
 def validate(net, curr_iter, optimizer):
@@ -212,19 +208,6 @@ def validate(net, curr_iter, optimizer):
 
     net.train()
 
-class TransLoss(nn.Module):
-    def __init__(self):
-        super(TransLoss, self).__init__()
-
-    def forward(self, test_output, target_output):
-        # Ensure there are no zero values to avoid division by zero
-        test_output = torch.clamp(test_output, min=1e-10)
-        target_output = torch.clamp(target_output, min=1e-10)
-        
-        # Compute the custom loss
-        loss = torch.abs((1/test_output - 1/target_output)*1e-10).mean()
-        return loss
-
 
 if __name__ == '__main__':
     args = parse_args()
@@ -241,7 +224,7 @@ if __name__ == '__main__':
     val_loader = DataLoader(val_dataset, batch_size=8)
 
     criterion = nn.L1Loss().cuda()
-    transloss = TransLoss().cuda()
+    # transloss = TransLoss().cuda()
     log_path = os.path.join(args.ckpt_path, args.exp_name, str(datetime.datetime.now()) + '.txt')
 
     main()

@@ -11,7 +11,7 @@ if __name__ == '__main__':
 
     ori_root = os.path.join(ohaze_root, '# O-HAZY NTIRE 2018')
     ori_haze_root = os.path.join(ori_root, 'hazy')
-    ori_gt_root = os.path.join(ori_root, 'GT')
+    ori_gt_root = os.path.join(ori_root, 'gt')
 
     patch_root = os.path.join(ohaze_root, 'train_crop_{}'.format(crop_size))
     patch_haze_path = os.path.join(patch_root, 'hazy')
@@ -23,7 +23,7 @@ if __name__ == '__main__':
 
     # first 35 images for training
     train_list = [img_name for img_name in os.listdir(ori_haze_root)
-                  if int(img_name.split('_')[0]) <= 35]
+                  if int(img_name.split('_')[0]) <= 40]
 
     for idx, img_name in enumerate(tqdm(train_list)):
         img_f_name, img_l_name = os.path.splitext(img_name)
