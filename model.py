@@ -824,7 +824,7 @@ class ours_wo_J0(Base):
 
 
 #newly added 小波变换，捕捉频域上的信息
-
+# unused
 def dwt_init(x):
     x01 = x[:, :, 0::2, :] / 2
     x02 = x[:, :, 1::2, :] / 2
@@ -1313,12 +1313,11 @@ class DM2FNet_woPhy(Base_OHAZE):
 
 # newly added
 # 1.修改了backbone
-# 2.对于图像的模糊性特征进行精细化提取，加入了RefinementNet
+# 2.对于图像的模糊性特征进行精细化提取，加入了Refine
 # 3.加入了颜色一致性损失
 # 4.加入了拉普拉斯多尺度高低频损失函数
 # 5.加入小波变换的多尺度损失
 # TODO 加入膨胀卷积
-# TODO 加入重采样
 # TODO 加入对于t的预测
 # TODO 加入后处理的网络
 class DM2FNet_woPhy_My(Base_OHAZE):# TODO 加入膨胀卷积
@@ -1599,6 +1598,7 @@ def pad_tensor(tensor, target_height, target_width):
     return F.pad(tensor, pad, "constant", 0)
 
 # 上采样模块，看一下能不能替换
+# unused
 class UpsampleBlock(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(UpsampleBlock, self).__init__()
@@ -1612,6 +1612,7 @@ class UpsampleBlock(nn.Module):
         x = self.relu(self.bn(self.conv(x)))
         return x
     
+# unused
 class ResidualBlock(nn.Module):
     def __init__(self, in_planes, dropRate=0.0):
         super(ResidualBlock, self).__init__()
@@ -1633,6 +1634,7 @@ class ResidualBlock(nn.Module):
         return out
 
 # S21 用来预测T的DenseNet中使用
+# unused
 class BottleneckBlock(nn.Module):
     def __init__(self, in_planes, out_planes, dropRate=0.0):
         super(BottleneckBlock, self).__init__()
@@ -1654,6 +1656,7 @@ class BottleneckBlock(nn.Module):
             out = F.dropout(out, p=self.droprate, inplace=False, training=self.training)
         return torch.cat([x, out], 1)
 
+# unused
 class TransitionBlock(nn.Module):
     def __init__(self, in_planes, out_planes, dropRate=0.0):
         super(TransitionBlock, self).__init__()
@@ -1668,6 +1671,7 @@ class TransitionBlock(nn.Module):
             out = F.dropout(out, p=self.droprate, inplace=False, training=self.training)
         return F.upsample_nearest(out, scale_factor=2)
 
+# unused
 class Dense(nn.Module):  # 用来预测T的模块 （原有模块，直接在输入的基础上去预测T）
     def __init__(self):
         super(Dense, self).__init__()
@@ -1829,6 +1833,7 @@ class CALayer(nn.Module):
         return x * y
 
 # 增大对比度模块
+# unused
 def clahe_contrast_enhancement(image_tensor, clip_limit=1.0, grid_size=(8, 8)):
     """
     使用局部自适应直方图均衡化（CLAHE）对输入图像张量进行对比度增强。
@@ -1871,7 +1876,7 @@ def clahe_contrast_enhancement(image_tensor, clip_limit=1.0, grid_size=(8, 8)):
     return enhanced_image_tensor
 
 # 1.修改了backbone
-# 2.对于图像的模糊性特征进行精细化提取，加入了RefinementNet（使用共享参数）
+# 2.对于图像的模糊性特征进行精细化提取，加入了Refine（使用共享参数）
 # 3.加入了颜色一致性损失
 # 4.加入了拉普拉斯多尺度高低频损失函数
 # 5.加入了生成对抗网络（判别器是一个VGG提取特征和一个分类头）

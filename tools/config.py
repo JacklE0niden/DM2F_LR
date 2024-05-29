@@ -21,4 +21,4 @@ TEST_SOTS_ROOT = osp.abspath(osp.join(root, '../data', 'RESIDE', 'SOTS', 'nyuhaz
 HAZERD_ROOT = osp.abspath(osp.join(root, '../data', 'HazeRD'))
 
 # test
-TEST_TEST_ROOT = osp.abspath(osp.join(root, '../data', 'test'))
+TEST_TEST_ROOT = osp.abspath(osp.join(root, '../data', 'test/hazy'))

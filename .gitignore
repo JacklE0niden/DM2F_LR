@@ -3,3 +3,5 @@ __pycache__/
 .idea
 ckpt
 data
+output_test_ablation.log
+output.log
