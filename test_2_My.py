@@ -47,7 +47,7 @@ def parse_args():
     # parser.add_argument(
     #     '--snapshot', type=str, default='version9_RESIDE_ITS_25000', help='snapshot to load for testing')
     parser.add_argument(
-        '--snapshot', type=str, default='version10_RESIDE_ITS_ablation', help='snapshot to load for testing')
+        '--snapshot', type=str, default='version11', help='snapshot to load for testing')
     return parser.parse_args()
 
 to_test = {
@@ -59,7 +59,7 @@ args = {
     # 'snapshot': 'iter_40000_loss_0.01267_lr_0.000000',
     # 'snapshot': 'iter_40000_loss_0.01658_lr_0.000000',
     # 'snapshot': 'iter_20000_loss_0.05956_lr_0.000000',
-    'snapshot': 'version10_RESIDE_ITS_ablation',
+    'snapshot': 'version11',
 }  
 to_pil = transforms.ToPILImage()
 

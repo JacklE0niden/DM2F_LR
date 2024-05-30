@@ -5,3 +5,5 @@ ckpt
 data
 output_test_ablation.log
 output.log
+output_test_11.log
+nohup.out
