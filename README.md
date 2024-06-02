@@ -10,6 +10,11 @@ This repo is the implementation of
 ## Results
 
 Some basic dehazing results can be found at `Report.md` 
+
+
+* Download model weight files：https://pan.baidu.com/s/1gnxMVDx2S6QHSJdwG9FX0Q?pwd=8nfj
+
+
 ## Installation & Preparation
 
 Make sure you have `Python>=3.7` installed on your machine.
