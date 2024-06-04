@@ -125,7 +125,7 @@ def train(net, netDiscriminator, optimizer, optimizer_Discriminator):
             x_jf, x_j0, x_j1, x_j2, x_j3, x_j4, t, a = net(haze)
 
             criterionGAN = GANLoss(device=haze.device)
-            fake_pool = ImagePool(pool_size=0)
+            fake_pool = ImagePool(0)
 
             # Discriminator loss for fake samples
             loss_D1 = 0
