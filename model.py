@@ -1917,7 +1917,7 @@ class MyModel(Base):
         elif 'densenet' in arch:
             down_channels = [64, 128, 256, 512]
         elif 'mobilenet' in arch:
-            down_channels = [24, 40, 80, 112, 320]  # EfficientNet specific down_channels, adjust if necessary
+            down_channels = [24, 40, 80, 112]
         elif 'efficientnet' in arch:
             down_channels = [16, 24, 40, 80]
 

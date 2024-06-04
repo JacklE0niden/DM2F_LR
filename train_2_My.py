@@ -132,14 +132,14 @@ def train(net, netDiscriminator, optimizer, optimizer_Discriminator):
             for x_j in [x_jf, x_j0, x_j1, x_j2, x_j3, x_j4]:
                 fake_query = fake_pool.query(x_j.detach())
                 pred_fake_pool = netDiscriminator.forward(fake_query)
-                loss_D_fake += criterionGAN(pred_fake_pool, False)
+                loss_D1 += criterionGAN(pred_fake_pool, False)
 
             # Discriminator loss for real samples
             pred_real = netDiscriminator.forward(gt.detach())
-            loss_D_real = criterionGAN(pred_real, True)
+            loss_D2 = criterionGAN(pred_real, True)
             
             # Total discriminator loss
-            loss_D = (loss_D_fake + loss_D_real * 6) / 12
+            loss_D = (loss_D_fake + loss_D2 * 6) / 12
 
             # Update discriminator parameters
             optimizer_Discriminator.zero_grad()

@@ -116,21 +116,16 @@ class DWT_transform(nn.Module):
 def compute_multiscale_hf_lf_loss_dwt(ground_truth, predicted_output, loss_function, dwt_transform, scales=[1, 0.5, 0.25]):
     total_loss = 0
     for scale in scales:
-        # 调整图像到不同的尺度
         gt_scaled = F.interpolate(ground_truth, scale_factor=scale, mode='bilinear', align_corners=True)
         pred_scaled = F.interpolate(predicted_output, scale_factor=scale, mode='bilinear', align_corners=True)
-        
-        # 计算残差
-        residual = gt_scaled - pred_scaled
-        
+        # residual = gt_scaled - pred_scaled
+
         # 计算DWT的低频和高频成分
         gt_low_freq, gt_high_freq = dwt_transform(gt_scaled)
         pred_low_freq, pred_high_freq = dwt_transform(pred_scaled)
         
-        # 计算低频和高频成分的损失，并累加到总损失中
         total_loss += loss_function(pred_low_freq, gt_low_freq) + loss_function(pred_high_freq, gt_high_freq)
     
-    # 返回平均损失
     return total_loss / len(scales)
 
 def compute_multiscale_hf_lf_loss_lp(ground_truth, predicted_output, loss_function, laplacian_filter, scales=[1, 0.5, 0.25]):
