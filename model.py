@@ -92,9 +92,9 @@ from resnext import ResNeXt101
 
 #     return images_wb, images_ce, images_gc
 
-class Refine(nn.Module):
+class Detail(nn.Module):
     def __init__(self, in_channels=3, out_channels=3):
-        super(Refine, self).__init__()
+        super(Detail, self).__init__()
         self.encoder = nn.Sequential(
             nn.Conv2d(in_channels, 64, kernel_size=3, stride=1, padding=1),
             nn.ReLU(inplace=True),
@@ -1360,7 +1360,7 @@ class DM2FNet_woPhy_My(Base_OHAZE):# TODO 加入膨胀卷积
         # backbone ResNet
 
         # NOTE 修改，加入了细节处理网络，对于x_p0的图像模糊特征进行细节提取
-        self.refine_net = Refine()
+        self.refine_net = Detail()
     
         self.down0 = nn.Sequential(
             nn.Conv2d(32, num_features, kernel_size=1), nn.SELU(),
@@ -2033,7 +2033,7 @@ class MyModel(Base):
         #                                         for _ in range(4)])
         # Define refinement layers
 
-        self.refine_net = Refine()
+        self.refine_net = Detail()
 
         self.dilated_conv = nn.Sequential(
             nn.Conv2d(512, 512, kernel_size=3, padding=2, dilation=2), nn.SELU(),
