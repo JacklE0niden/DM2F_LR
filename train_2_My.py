@@ -128,7 +128,7 @@ def train(net, netDiscriminator, optimizer, optimizer_Discriminator):
             fake_pool = ImagePool(pool_size=0)
 
             # Discriminator loss for fake samples
-            loss_D_fake = 0
+            loss_D1 = 0
             for x_j in [x_jf, x_j0, x_j1, x_j2, x_j3, x_j4]:
                 fake_query = fake_pool.query(x_j.detach())
                 pred_fake_pool = netDiscriminator.forward(fake_query)
@@ -139,7 +139,7 @@ def train(net, netDiscriminator, optimizer, optimizer_Discriminator):
             loss_D2 = criterionGAN(pred_real, True)
             
             # Total discriminator loss
-            loss_D = (loss_D_fake + loss_D2 * 6) / 12
+            loss_D = (loss_D1 + loss_D2 * 6) / 12
 
             # Update discriminator parameters
             optimizer_Discriminator.zero_grad()
