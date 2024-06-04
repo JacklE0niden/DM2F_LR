@@ -1362,14 +1362,6 @@ class DM2FNet_woPhy_My(Base_OHAZE):# TODO 加入膨胀卷积
         # NOTE 修改，加入了细节处理网络，对于x_p0的图像模糊特征进行细节提取
         self.refine_net = Refine()
     
-        # if self.use_sep:
-        #     self.refine_net1 = RefinementNet()
-        #     self.refine_net2 = RefinementNet()
-        #     self.refine_net3 = RefinementNet()
-        
-        # if self.use_final:
-        #     self.refine_net_final = RefinementNet()
-
         self.down0 = nn.Sequential(
             nn.Conv2d(32, num_features, kernel_size=1), nn.SELU(),
             nn.Conv2d(num_features, num_features, kernel_size=3, padding=1), nn.SELU(),
